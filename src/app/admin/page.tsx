@@ -49,7 +49,10 @@ export default async function AdminPage() {
 
   return (
     <AdminWrapper>
-      <AdminClient initialProjects={projects} />
+      <AdminClient
+        key={projects.map((project) => project.id).join(":")}
+        initialProjects={projects}
+      />
     </AdminWrapper>
   );
 }

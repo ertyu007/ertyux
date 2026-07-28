@@ -22,6 +22,8 @@ import {
   X,
 } from "lucide-react";
 
+import type { UploadedImageProof } from "./actions";
+
 export type ImageItemStatus = "ready" | "uploading" | "done" | "error";
 
 export type ImageItem = {
@@ -31,6 +33,7 @@ export type ImageItem = {
   file?: File;
   preview?: string;
   status?: ImageItemStatus;
+  upload?: UploadedImageProof;
 };
 
 type ProjectImageUploaderProps = {

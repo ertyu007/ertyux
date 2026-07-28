@@ -1,10 +1,12 @@
 "use client";
 
 import {
+  useCallback,
   useEffect,
   useMemo,
   useRef,
   useState,
+  useSyncExternalStore,
   type FormEvent,
   type ReactNode,
 } from "react";
@@ -53,6 +55,8 @@ const EMPTY_FORM: FormState = {
   demo_link: "",
   github_link: "",
 };
+
+const subscribeToClient = () => () => {};
 
 function parseProjectImages(value: string | null | undefined): string[] {
   if (!value?.trim()) return [];
@@ -111,8 +115,13 @@ export default function AdminClient({
   const router = useRouter();
   const dialogRef = useRef<HTMLDivElement>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
+  const uploadPromisesRef = useRef(new Map<string, Promise<UploadedImageProof>>());
 
-  const [mounted, setMounted] = useState(false);
+  const mounted = useSyncExternalStore(
+    subscribeToClient,
+    () => true,
+    () => false
+  );
   const [projects, setProjects] = useState<Project[]>(initialProjects);
   const [editorOpen, setEditorOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -122,14 +131,6 @@ export default function AdminClient({
   const [saveError, setSaveError] = useState("");
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [pageMessage, setPageMessage] = useState("");
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  useEffect(() => {
-    setProjects(initialProjects);
-  }, [initialProjects]);
 
   useEffect(() => {
     if (!editorOpen) return;
@@ -212,10 +213,30 @@ export default function AdminClient({
     setEditorOpen(true);
   };
 
+  const discardDraftImages = (draftImages: ImageItem[]) => {
+    const uploads = draftImages
+      .filter(
+        (item): item is ImageItem & { upload: UploadedImageProof } =>
+          item.type === "new" && Boolean(item.upload)
+      )
+      .map((item) => item.upload);
+
+    if (uploads.length > 0) {
+      void discardProjectUploads(uploads).catch(() => undefined);
+    }
+  };
+
   const closeEditor = () => {
     if (saving) return;
+    discardDraftImages(images);
     setEditorOpen(false);
     setSaveError("");
+  };
+
+  const handleImagesChange = (nextImages: ImageItem[]) => {
+    const nextIds = new Set(nextImages.map((item) => item.id));
+    discardDraftImages(images.filter((item) => !nextIds.has(item.id)));
+    setImages(nextImages);
   };
 
   const updateImageStatus = (
@@ -227,14 +248,9 @@ export default function AdminClient({
     );
   };
 
-  const uploadNewImages = async (): Promise<UploadedImageProof[]> => {
-    const newItems = images.filter(
-      (item): item is ImageItem & { type: "new"; file: File } =>
-        item.type === "new" && item.file instanceof File
-    );
-
-    if (newItems.length === 0) return [];
-
+  const uploadImageBatch = useCallback(async (
+    newItems: Array<ImageItem & { type: "new"; file: File }>
+  ): Promise<UploadedImageProof[]> => {
     const prepared = await prepareProjectUploads(
       newItems.map((item) => ({
         clientId: item.id,
@@ -251,7 +267,6 @@ export default function AdminClient({
     const ticketsById = new Map<string, UploadTicket>(
       prepared.uploads.map((ticket) => [ticket.clientId, ticket])
     );
-    const completed: UploadedImageProof[] = [];
 
     const results = await Promise.allSettled(
       newItems.map(async (item) => {
@@ -282,8 +297,13 @@ export default function AdminClient({
           signature: ticket.signature,
         };
 
-        completed.push(proof);
-        updateImageStatus(item.id, "done");
+        setImages((current) =>
+          current.map((currentItem) =>
+            currentItem.id === item.id
+              ? { ...currentItem, status: "done", upload: proof }
+              : currentItem
+          )
+        );
         return proof;
       })
     );
@@ -294,10 +314,6 @@ export default function AdminClient({
     );
 
     if (failed) {
-      if (completed.length > 0) {
-        await discardProjectUploads(completed).catch(() => undefined);
-      }
-
       throw failed.reason instanceof Error
         ? failed.reason
         : new Error("One or more images could not be uploaded.");
@@ -309,6 +325,93 @@ export default function AdminClient({
       }
       return result.value;
     });
+  }, []);
+
+  const startBackgroundUploads = useCallback(
+    (itemsToUpload: Array<ImageItem & { type: "new"; file: File }>): void => {
+      if (itemsToUpload.length === 0) return;
+
+      const batches = itemsToUpload.filter(
+        (item) => !uploadPromisesRef.current.has(item.id)
+      );
+      if (batches.length === 0) return;
+
+      for (const item of batches) {
+        updateImageStatus(item.id, "uploading");
+      }
+
+      const batchPromise = uploadImageBatch(batches).catch((error) => {
+        setImages((current) =>
+          current.map((currentItem) =>
+            batches.some((item) => item.id === currentItem.id) &&
+            currentItem.status !== "done"
+              ? { ...currentItem, status: "error" }
+              : currentItem
+          )
+        );
+        throw error;
+      });
+
+      for (const item of batches) {
+        const itemPromise = batchPromise.then((uploads) => {
+          const upload = uploads.find(
+            (candidate) => candidate.clientId === item.id
+          );
+          if (!upload) {
+            throw new Error(`Missing upload result for ${item.file.name}.`);
+          }
+          return upload;
+        });
+
+        uploadPromisesRef.current.set(item.id, itemPromise);
+        itemPromise.finally(() => {
+          uploadPromisesRef.current.delete(item.id);
+        });
+        void itemPromise.catch(() => undefined);
+      }
+    },
+    [uploadImageBatch]
+  );
+
+  useEffect(() => {
+    if (!editorOpen || saving) return;
+
+    const readyItems = images.filter(
+      (item): item is ImageItem & { type: "new"; file: File } =>
+        item.type === "new" &&
+        item.file instanceof File &&
+        !item.upload &&
+        item.status === "ready"
+    );
+
+    startBackgroundUploads(readyItems);
+  }, [editorOpen, images, saving, startBackgroundUploads]);
+
+  const uploadNewImages = async (): Promise<UploadedImageProof[]> => {
+    const newItems = images.filter(
+      (item): item is ImageItem & { type: "new"; file: File } =>
+        item.type === "new" && item.file instanceof File
+    );
+
+    if (newItems.length === 0) return [];
+
+    const readyItems = newItems.filter(
+      (item) => !item.upload && !uploadPromisesRef.current.has(item.id)
+    );
+    startBackgroundUploads(readyItems);
+
+    const uploads = await Promise.all(
+      newItems.map(async (item) => {
+        if (item.upload) return item.upload;
+
+        const inFlight = uploadPromisesRef.current.get(item.id);
+        if (inFlight) return inFlight;
+
+        throw new Error(`${item.file.name}: image upload has not started.`);
+      })
+    );
+
+    return uploads;
   };
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -329,7 +432,9 @@ export default function AdminClient({
     setSaving(true);
     setImages((current) =>
       current.map((item) =>
-        item.type === "new" ? { ...item, status: "ready" } : item
+        item.type === "new" && !item.upload
+          ? { ...item, status: "ready" }
+          : item
       )
     );
 
@@ -489,7 +594,7 @@ export default function AdminClient({
                   <section className="admin-modal__upload">
                     <ProjectImageUploader
                       items={images}
-                      onChange={setImages}
+                      onChange={handleImagesChange}
                       disabled={saving}
                       busy={saving}
                       maxFiles={5}

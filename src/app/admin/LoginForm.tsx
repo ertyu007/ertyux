@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Eye, EyeOff, Loader2, LockKeyhole } from "lucide-react";
 
@@ -39,9 +40,9 @@ export default function LoginForm() {
 
   return (
     <main className="admin-login-page">
-      <a href="/" className="admin-login-page__back">
+      <Link href="/" className="admin-login-page__back">
         <ArrowLeft size={16} /> กลับไปเว็บไซต์
-      </a>
+      </Link>
 
       <section className="admin-login-card">
         <div className="admin-login-card__icon">
