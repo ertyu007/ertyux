@@ -88,8 +88,6 @@ next.config.mjs
 tsconfig.json
 eslint.config.mjs
 README.md
-seed-db.mjs
-test-db.mjs
 Supabase SQL migrations, schema definitions, RLS policies, and RPC functions
 ```
 
@@ -190,11 +188,10 @@ next patch directly addresses it.
 ## 4. Required Work Products
 
 Create or update these reports in a repository-local agent report directory, for
-example `.antigravity/reports/`, unless the repository already has an established
-location:
+example `reports/`, unless the repository already has an established location:
 
 ```text
-.antigravity/reports/
+reports/
 ├── 00-baseline.md
 ├── 01-audit-register.md
 ├── 02-execution-plan.md
