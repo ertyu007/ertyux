@@ -114,7 +114,6 @@ export default function Projects() {
   const [records, setRecords] = useState<ProjectRecord[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [imagesReady, setImagesReady] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const requestIdRef = useRef(0);
 
@@ -122,7 +121,6 @@ export default function Projects() {
     const requestId = ++requestIdRef.current;
 
     setLoading(true);
-    setImagesReady(false);
     setErrorMessage("");
 
     try {
@@ -162,45 +160,13 @@ export default function Projects() {
 
   const projects = useMemo(() => records.map(mapProject), [records]);
 
-  useEffect(() => {
-    if (loading) return;
-
-    const imageUrls = [...new Set(
-      projects.flatMap((project) => project.image_urls)
-    )];
-
-    let cancelled = false;
-
-    const preload = imageUrls.map(
-      (url) =>
-        new Promise<void>((resolve) => {
-          const image = new Image();
-          image.onload = () => resolve();
-          image.onerror = () => resolve();
-          image.src = url;
-
-          if (image.complete) {
-            resolve();
-          }
-        })
-    );
-
-    void Promise.all(preload).then(() => {
-      if (!cancelled) setImagesReady(true);
-    });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [loading, projects]);
-
   const selectedProject = useMemo(
     () => projects.find((project) => project.id === selectedId) || null,
     [projects, selectedId]
   );
 
   useEffect(() => {
-    if (loading || !imagesReady || selectedId || projects.length === 0) return;
+    if (loading || selectedId || projects.length === 0) return;
 
     const match = window.location.hash.match(/^#project-(.+)$/);
     if (!match) return;
@@ -209,7 +175,7 @@ export default function Projects() {
     if (projects.some((project) => project.id === id)) {
       queueMicrotask(() => setSelectedId(id));
     }
-  }, [imagesReady, loading, projects, selectedId]);
+  }, [loading, projects, selectedId]);
 
   const openProject = useCallback((id: string) => {
     setSelectedId(id);
@@ -275,7 +241,7 @@ export default function Projects() {
           </motion.div>
         )}
 
-        {loading || !imagesReady ? (
+        {loading ? (
           <motion.div
             className="pgx-grid"
             aria-label="กำลังโหลดโปรเจกต์"

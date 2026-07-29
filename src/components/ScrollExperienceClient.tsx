@@ -5,7 +5,6 @@ import dynamic from "next/dynamic";
 const ScrollExperience = dynamic(
   () => import("@/components/ScrollExperience"),
   {
-    ssr: false,
     loading: () => <ScrollExperienceLoading />,
   }
 );

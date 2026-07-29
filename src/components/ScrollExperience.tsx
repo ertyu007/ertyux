@@ -545,6 +545,21 @@ export default function ScrollExperience() {
   const progressRef = useRef(0);
   const quality = useSceneQuality();
   const shouldReduceMotion = useReducedMotion() ?? false;
+  const [sceneReady, setSceneReady] = useState(false);
+
+  useEffect(() => {
+    if (shouldReduceMotion) return;
+
+    const startScene = () => setSceneReady(true);
+
+    if ("requestIdleCallback" in window) {
+      const idleId = window.requestIdleCallback(startScene, { timeout: 1500 });
+      return () => window.cancelIdleCallback(idleId);
+    }
+
+    const timerId = globalThis.setTimeout(startScene, 800);
+    return () => globalThis.clearTimeout(timerId);
+  }, [shouldReduceMotion]);
 
   useIsomorphicLayoutEffect(() => {
     const section = sectionRef.current;
@@ -826,7 +841,7 @@ export default function ScrollExperience() {
           aria-hidden="true"
           style={{ position: "absolute", inset: 0, zIndex: 0 }}
         >
-          {!shouldReduceMotion ? (
+          {!shouldReduceMotion && sceneReady ? (
             <Canvas
               frameloop="always"
               dpr={quality.dpr}
@@ -965,9 +980,7 @@ export default function ScrollExperience() {
             }}
           >
             <motion.div
-              initial={
-                shouldReduceMotion ? false : { opacity: 0, y: 18 }
-              }
+              initial={false}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.55, delay: 0.15 }}
             >
@@ -1007,9 +1020,7 @@ export default function ScrollExperience() {
             </motion.div>
 
             <motion.h1
-              initial={
-                shouldReduceMotion ? false : { opacity: 0, y: 32 }
-              }
+              initial={false}
               animate={{ opacity: 1, y: 0 }}
               transition={{
                 duration: 0.7,
@@ -1028,7 +1039,7 @@ export default function ScrollExperience() {
               }}
             >
               <motion.span
-                initial={shouldReduceMotion ? false : { opacity: 0, y: 18, filter: "blur(8px)" }}
+                initial={false}
                 animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
                 transition={{ duration: 0.65, delay: 0.3, ease: [0.16, 1, 0.3, 1] }}
                 style={{ display: "block" }}
@@ -1036,7 +1047,7 @@ export default function ScrollExperience() {
                 STUDENT
               </motion.span>
               <motion.span
-                initial={shouldReduceMotion ? false : { opacity: 0, y: 18, filter: "blur(8px)" }}
+                initial={false}
                 animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
                 transition={{ duration: 0.75, delay: 0.42, ease: [0.16, 1, 0.3, 1] }}
                 className="text-gradient"
@@ -1048,9 +1059,7 @@ export default function ScrollExperience() {
 
             <motion.p
               className="hero-description"
-              initial={
-                shouldReduceMotion ? false : { opacity: 0, y: 24, filter: "blur(8px)" }
-              }
+              initial={false}
               animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
               transition={{ duration: 0.65, delay: 0.55, ease: [0.16, 1, 0.3, 1] }}
               style={{
@@ -1068,9 +1077,7 @@ export default function ScrollExperience() {
             </motion.p>
 
             <motion.div
-              initial={
-                shouldReduceMotion ? false : { opacity: 0, y: 18, scale: 0.98 }
-              }
+              initial={false}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               transition={{ duration: 0.6, delay: 0.7, ease: [0.16, 1, 0.3, 1] }}
               className="hero-actions"

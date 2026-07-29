@@ -2,7 +2,8 @@
 
 import { motion } from "framer-motion";
 import { ArrowUpRight, Heart, Images } from "lucide-react";
-import { useCallback, type SyntheticEvent } from "react";
+import Image from "next/image";
+import { useState } from "react";
 
 export type ProjectCardModel = {
   id: string;
@@ -30,15 +31,8 @@ export default function ProjectCard({
   );
 
   const cover = images[0] || FALLBACK_IMAGE;
-
-  const handleImageError = useCallback(
-    (event: SyntheticEvent<HTMLImageElement>) => {
-      if (event.currentTarget.src !== FALLBACK_IMAGE) {
-        event.currentTarget.src = FALLBACK_IMAGE;
-      }
-    },
-    []
-  );
+  const [imageFailed, setImageFailed] = useState(false);
+  const imageSrc = imageFailed ? FALLBACK_IMAGE : cover;
 
   return (
     <motion.article
@@ -57,12 +51,15 @@ export default function ProjectCard({
         whileTap={{ scale: 0.995 }}
       >
         <span className="pgx-card__media">
-          <img
-            src={cover}
+          <Image
+            src={imageSrc}
             alt={project.title}
-            loading={index < 2 ? "eager" : "lazy"}
+            fill
+            sizes="(max-width: 768px) 100vw, 50vw"
+            loading="lazy"
             decoding="async"
-            onError={handleImageError}
+            unoptimized={imageSrc === FALLBACK_IMAGE}
+            onError={() => setImageFailed(true)}
           />
 
           <span className="pgx-card__count">
