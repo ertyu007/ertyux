@@ -171,6 +171,99 @@ p  { line-height: 1.75; color: var(--fg-dim); }
   background-clip: text;
 }
 
+.lightweight-hero {
+  position: relative;
+  isolation: isolate;
+  width: 100%;
+  min-height: 100svh;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 76% 24%, var(--cyan-glow), transparent 34%),
+    radial-gradient(circle at 20% 78%, var(--purple-glow), transparent 38%),
+    var(--bg);
+}
+
+.lightweight-hero__glow {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background:
+    linear-gradient(rgba(10, 132, 255, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(10, 132, 255, 0.04) 1px, transparent 1px);
+  background-size: 42px 42px;
+  mask-image: radial-gradient(circle at center, #000 0%, transparent 72%);
+}
+
+.lightweight-hero__content {
+  min-height: 100svh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding-top: 5rem;
+  padding-bottom: 5rem;
+  text-align: center;
+}
+
+.lightweight-hero .hero-availability {
+  justify-content: center;
+  margin-bottom: 1.5rem;
+}
+
+.lightweight-hero__status {
+  width: 8px;
+  height: 8px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: var(--cyan);
+  box-shadow: 0 0 14px var(--cyan-glow);
+}
+
+.lightweight-hero h1 {
+  max-width: 920px;
+  margin: 0;
+  font-size: clamp(3.2rem, 10vw, 8rem);
+  line-height: 0.88;
+  letter-spacing: -0.065em;
+  text-wrap: balance;
+}
+
+.lightweight-hero h1 span {
+  display: block;
+}
+
+.lightweight-hero .hero-description {
+  max-width: 620px;
+  margin: 1.75rem auto 0;
+  font-size: clamp(1rem, 2vw, 1.18rem);
+  line-height: 1.75;
+  text-wrap: balance;
+}
+
+.lightweight-hero .hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 1rem;
+  margin-top: 2rem;
+}
+
+.lightweight-hero__scroll {
+  position: absolute;
+  bottom: max(1.5rem, env(safe-area-inset-bottom));
+  left: 50%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  color: var(--fg-dim);
+  font-size: 0.67rem;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
 /* ============================================================
    ANIMATIONS
    ============================================================ */
@@ -712,6 +805,20 @@ p  { line-height: 1.75; color: var(--fg-dim); }
   .hero-actions .btn-outline {
     width: 100%;
     justify-content: center;
+  }
+  .lightweight-hero h1 {
+    font-size: clamp(2.7rem, 16vw, 4.8rem);
+    line-height: 0.94;
+    letter-spacing: -0.052em;
+  }
+  .lightweight-hero .hero-description {
+    margin-top: 1.2rem;
+    font-size: clamp(0.94rem, 4vw, 1.05rem);
+    line-height: 1.65;
+  }
+  .lightweight-hero .hero-actions {
+    gap: 0.75rem;
+    margin-top: 1.5rem;
   }
   .contact-security {
     grid-template-columns: 1fr !important;

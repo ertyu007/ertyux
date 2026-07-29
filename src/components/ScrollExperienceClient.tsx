@@ -1,80 +1,75 @@
 "use client";
 
-import dynamic from "next/dynamic";
+import { useEffect, useState, type ComponentType } from "react";
 
-const ScrollExperience = dynamic(
-  () => import("@/components/ScrollExperience"),
-  {
-    loading: () => <ScrollExperienceLoading />,
-  }
-);
-
-function ScrollExperienceLoading() {
+function LightweightHero() {
   return (
     <section
-      aria-label="Loading portfolio introduction"
-      aria-busy="true"
-      style={{
-        minHeight: "100svh",
-        width: "100%",
-        display: "grid",
-        placeItems: "center",
-        background: "var(--bg, #0a0b0f)",
-      }}
+      id="home"
+      className="lightweight-hero"
+      aria-label="Portfolio introduction"
     >
-      <div
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          gap: "1rem",
-          color: "var(--fg-dim, #a0aec0)",
-        }}
-      >
-        <div
-          className="scroll-experience-loader"
-          aria-hidden="true"
-          style={{
-            width: 42,
-            height: 42,
-            borderRadius: "50%",
-            border: "3px solid rgba(79, 209, 197, 0.18)",
-            borderTopColor: "var(--cyan, #4fd1c5)",
-          }}
-        />
+      <div className="lightweight-hero__glow" aria-hidden="true" />
 
-        <span
-          style={{
-            fontSize: "0.8rem",
-            letterSpacing: "0.12em",
-            textTransform: "uppercase",
-          }}
-        >
-          Loading experience
-        </span>
+      <div className="container lightweight-hero__content">
+        <div className="section-tag hero-availability">
+          <span className="lightweight-hero__status" aria-hidden="true" />
+          Available for selected projects
+        </div>
+
+        <h1>
+          <span>STUDENT</span>
+          <span className="text-gradient">CREATOR</span>
+        </h1>
+
+        <p className="hero-description">
+          คิดให้เป็น ทำให้ใช้งานได้จริง ใส่ใจทุกงาน
+          ตั้งแต่เว็บไซต์ ระบบข้อมูล ไปจนถึงคอนเทนต์วิดีโอ
+        </p>
+
+        <div className="hero-actions">
+          <a href="#projects" className="btn-primary">
+            <span>Explore projects</span>
+            <span aria-hidden="true">↗</span>
+          </a>
+
+          <a href="#contact" className="btn-outline">
+            Start a conversation
+          </a>
+        </div>
       </div>
 
-      <style jsx>{`
-        .scroll-experience-loader {
-          animation: scroll-experience-spin 0.8s linear infinite;
-        }
-
-        @keyframes scroll-experience-spin {
-          to {
-            transform: rotate(360deg);
-          }
-        }
-
-        @media (prefers-reduced-motion: reduce) {
-          .scroll-experience-loader {
-            animation: none;
-          }
-        }
-      `}</style>
+      <div className="lightweight-hero__scroll" aria-hidden="true">
+        <span>SCROLL TO EXPLORE</span>
+        <span>↓</span>
+      </div>
     </section>
   );
 }
 
 export default function ScrollExperienceClient() {
-  return <ScrollExperience />;
+  const [DesktopExperience, setDesktopExperience] =
+    useState<ComponentType | null>(null);
+
+  useEffect(() => {
+    const supportsDesktopExperience = window.matchMedia(
+      "(min-width: 769px) and (hover: hover) and (pointer: fine)"
+    ).matches;
+
+    if (!supportsDesktopExperience) return;
+
+    let cancelled = false;
+
+    void import("@/components/ScrollExperience").then((module) => {
+      if (!cancelled) {
+        setDesktopExperience(() => module.default);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  return DesktopExperience ? <DesktopExperience /> : <LightweightHero />;
 }
