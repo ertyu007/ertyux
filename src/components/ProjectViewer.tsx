@@ -27,8 +27,6 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 
-import { supabase } from "@/lib/supabase";
-
 export type ProjectViewerProject = {
   id: string;
   title: string;
@@ -490,12 +488,26 @@ export default function ProjectViewer({
         JSON.stringify([...new Set([...likedProjects, project.id])])
       );
 
-      const { error } = await supabase
-        .from("projects")
-        .update({ likes_count: nextCount })
-        .eq("id", project.id);
+      const response = await fetch("/api/projects/like", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ projectId: project.id }),
+      });
+      const result: unknown = await response.json();
 
-      if (error) throw error;
+      if (
+        !response.ok ||
+        !result ||
+        typeof result !== "object" ||
+        !("likesCount" in result) ||
+        typeof result.likesCount !== "number"
+      ) {
+        throw new Error("The server could not save this like.");
+      }
+
+      const savedCount = Math.max(0, result.likesCount);
+      setLikesCount(savedCount);
+      onLike?.(project.id, savedCount);
     } catch (error) {
       console.error("Could not update project like:", error);
       setHasLiked(false);
