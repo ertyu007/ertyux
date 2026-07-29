@@ -1,8 +1,22 @@
 "use client";
 
-import { useEffect, useState, type ComponentType } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type ComponentType,
+} from "react";
 
-function LightweightHero() {
+type ExperienceStatus = "idle" | "loading" | "error";
+
+function LightweightHero({
+  experienceStatus,
+  onEnable3D,
+}: {
+  experienceStatus: ExperienceStatus;
+  onEnable3D: () => void;
+}) {
   return (
     <section
       id="home"
@@ -36,7 +50,34 @@ function LightweightHero() {
           <a href="#contact" className="btn-outline">
             Start a conversation
           </a>
+
+          <button
+            type="button"
+            className="btn-outline mobile-3d-trigger"
+            onClick={onEnable3D}
+            disabled={experienceStatus === "loading"}
+            aria-describedby={
+              experienceStatus === "error" ? "mobile-3d-status" : undefined
+            }
+          >
+            {experienceStatus === "loading"
+              ? "กำลังเปิด 3D..."
+              : experienceStatus === "error"
+                ? "ลองเปิด 3D อีกครั้ง"
+                : "เปิดโหมด 3D"}
+          </button>
         </div>
+
+        <p
+          id="mobile-3d-status"
+          className="mobile-3d-status"
+          role="status"
+          aria-live="polite"
+        >
+          {experienceStatus === "error"
+            ? "โหลดโหมด 3D ไม่สำเร็จ กรุณาตรวจสอบอินเทอร์เน็ตแล้วลองอีกครั้ง"
+            : ""}
+        </p>
       </div>
 
       <div className="lightweight-hero__scroll" aria-hidden="true">
@@ -50,26 +91,58 @@ function LightweightHero() {
 export default function ScrollExperienceClient() {
   const [DesktopExperience, setDesktopExperience] =
     useState<ComponentType | null>(null);
+  const [experienceStatus, setExperienceStatus] =
+    useState<ExperienceStatus>("idle");
+  const mountedRef = useRef(true);
+
+  const enable3D = useCallback(async () => {
+    if (experienceStatus === "loading" || DesktopExperience) return;
+
+    setExperienceStatus("loading");
+
+    try {
+      const experienceModule = await import("@/components/ScrollExperience");
+
+      if (mountedRef.current) {
+        setDesktopExperience(() => experienceModule.default);
+        setExperienceStatus("idle");
+      }
+    } catch {
+      if (mountedRef.current) {
+        setExperienceStatus("error");
+      }
+    }
+  }, [DesktopExperience, experienceStatus]);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
   useEffect(() => {
     const supportsDesktopExperience = window.matchMedia(
       "(min-width: 769px) and (hover: hover) and (pointer: fine)"
     ).matches;
 
-    if (!supportsDesktopExperience) return;
-
-    let cancelled = false;
-
-    void import("@/components/ScrollExperience").then((module) => {
-      if (!cancelled) {
-        setDesktopExperience(() => module.default);
-      }
-    });
+    const timerId = supportsDesktopExperience
+      ? window.setTimeout(() => void enable3D(), 0)
+      : undefined;
 
     return () => {
-      cancelled = true;
+      if (timerId !== undefined) {
+        window.clearTimeout(timerId);
+      }
     };
-  }, []);
+  }, [enable3D]);
 
-  return DesktopExperience ? <DesktopExperience /> : <LightweightHero />;
+  return DesktopExperience ? (
+    <DesktopExperience />
+  ) : (
+    <LightweightHero
+      experienceStatus={experienceStatus}
+      onEnable3D={() => void enable3D()}
+    />
+  );
 }

@@ -248,6 +248,16 @@ p  { line-height: 1.75; color: var(--fg-dim); }
   margin-top: 2rem;
 }
 
+.mobile-3d-trigger,
+.mobile-3d-status {
+  display: none;
+}
+
+.mobile-3d-trigger:disabled {
+  cursor: wait;
+  opacity: 0.72;
+}
+
 .lightweight-hero__scroll {
   position: absolute;
   bottom: max(1.5rem, env(safe-area-inset-bottom));
@@ -819,6 +829,17 @@ p  { line-height: 1.75; color: var(--fg-dim); }
   .lightweight-hero .hero-actions {
     gap: 0.75rem;
     margin-top: 1.5rem;
+  }
+  .mobile-3d-trigger {
+    display: inline-flex;
+  }
+  .mobile-3d-status {
+    display: block;
+    min-height: 1.4rem;
+    margin-top: 0.75rem;
+    color: var(--pink);
+    font-size: 0.8rem;
+    line-height: 1.4;
   }
   .contact-security {
     grid-template-columns: 1fr !important;
