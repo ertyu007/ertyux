@@ -438,20 +438,28 @@ function TextStep({
 }: TextStepProps) {
   return (
     <div
-      ref={stepRef}
+      className="scroll-story-step-positioner"
       style={{
         position: "absolute",
-        top: "50%",
-        left: "50%",
-        width: "min(760px, calc(100% - 2rem))",
-        transform: "translate(-50%, -50%)",
-        textAlign: "center",
-        visibility: "hidden",
-        opacity: 0,
+        inset: 0,
+        display: "grid",
+        placeItems: "center",
         pointerEvents: "none",
       }}
     >
       <div
+        ref={stepRef}
+        className="scroll-story-step"
+        style={{
+          width: "min(760px, calc(100% - 2rem))",
+          textAlign: "center",
+          visibility: "hidden",
+          opacity: 0,
+          pointerEvents: "none",
+        }}
+      >
+      <div
+        className="scroll-story-step__label"
         style={{
           display: "inline-flex",
           alignItems: "center",
@@ -499,32 +507,57 @@ function TextStep({
         </span>
       </div>
 
-      <h2
-        style={{
-          margin: 0,
-          fontSize: "clamp(2.6rem, 7vw, 5.6rem)",
-          lineHeight: 0.98,
-          letterSpacing: "-0.055em",
-          textWrap: "balance",
-        }}
-      >
-        {title}
-        <br />
-        <span className="text-gradient">{highlight}</span>
-      </h2>
+        <h2
+          className="scroll-story-step__title"
+          aria-label={`${title} ${highlight}`}
+          style={{
+            margin: 0,
+            fontSize: "clamp(2.6rem, 7vw, 5.6rem)",
+            lineHeight: 0.98,
+            letterSpacing: "-0.055em",
+            textWrap: "balance",
+          }}
+        >
+          <span
+            aria-hidden="true"
+            className="scroll-story-step__line"
+            style={{ position: "relative", display: "block" }}
+          >
+            <span style={{ visibility: "hidden" }}>{title}</span>
+            <span
+              className="scroll-story-step__typed"
+              data-text={title}
+              style={{ position: "absolute", inset: 0 }}
+            />
+          </span>
+          <span
+            aria-hidden="true"
+            className="scroll-story-step__line"
+            style={{ position: "relative", display: "block" }}
+          >
+            <span style={{ visibility: "hidden" }}>{highlight}</span>
+            <span
+              className="text-gradient scroll-story-step__typed"
+              data-text={highlight}
+              style={{ position: "absolute", inset: 0, display: "block" }}
+            />
+          </span>
+        </h2>
 
-      <p
-        style={{
-          maxWidth: 580,
-          margin: "1.4rem auto 0",
-          fontSize: "clamp(1rem, 2vw, 1.18rem)",
-          lineHeight: 1.75,
-          color: "var(--fg-dim)",
-          textWrap: "balance",
-        }}
-      >
-        {description}
-      </p>
+        <p
+          className="scroll-story-step__description"
+          style={{
+            maxWidth: 580,
+            margin: "1.4rem auto 0",
+            fontSize: "clamp(1rem, 2vw, 1.18rem)",
+            lineHeight: 1.75,
+            color: "var(--fg-dim)",
+            textWrap: "balance",
+          }}
+        >
+          {description}
+        </p>
+      </div>
     </div>
   );
 }
@@ -577,6 +610,26 @@ export default function ScrollExperience() {
         stepTwoRef.current,
         stepThreeRef.current,
       ].filter((element): element is HTMLDivElement => Boolean(element));
+      const stepTitles = steps
+        .map((step) =>
+          step.querySelector<HTMLElement>(".scroll-story-step__title")
+        )
+        .filter((element): element is HTMLElement => Boolean(element));
+      const stepDescriptions = steps
+        .map((step) =>
+          step.querySelector<HTMLElement>(".scroll-story-step__description")
+        )
+        .filter((element): element is HTMLElement => Boolean(element));
+      const typedLines = steps.map((step) =>
+        Array.from(
+          step.querySelectorAll<HTMLElement>(".scroll-story-step__typed")
+        )
+      );
+      const typingStates = typedLines.flat().map((element) => {
+        const text = element.dataset.text || "";
+        element.textContent = shouldReduceMotion ? text : "";
+        return { characters: shouldReduceMotion ? text.length : 0 };
+      });
 
       gsap.set(steps, {
         autoAlpha: 0,
@@ -584,6 +637,16 @@ export default function ScrollExperience() {
         y: shouldReduceMotion ? 0 : 42,
         scale: shouldReduceMotion ? 1 : 0.97,
         filter: shouldReduceMotion ? "none" : "blur(6px)",
+      });
+      gsap.set(stepTitles, {
+        autoAlpha: 1,
+        y: 0,
+        filter: "none",
+      });
+      gsap.set(stepDescriptions, {
+        autoAlpha: shouldReduceMotion ? 1 : 0,
+        y: shouldReduceMotion ? 0 : 16,
+        filter: shouldReduceMotion ? "none" : "blur(7px)",
       });
 
       gsap.set(progressBarRef.current, {
@@ -648,6 +711,34 @@ export default function ScrollExperience() {
           },
         },
       });
+      const addTypingTween = (
+        lineIndex: number,
+        position: number,
+        duration: number
+      ) => {
+        if (shouldReduceMotion) return;
+
+        const element = typedLines.flat()[lineIndex];
+        const state = typingStates[lineIndex];
+        const text = element?.dataset.text || "";
+        if (!element || !state) return;
+
+        timeline.to(
+          state,
+          {
+            characters: text.length,
+            duration,
+            ease: "none",
+            onUpdate: () => {
+              element.textContent = text.slice(
+                0,
+                Math.round(state.characters)
+              );
+            },
+          },
+          position
+        );
+      };
 
       timeline.to(
         heroRef.current,
@@ -700,7 +791,7 @@ export default function ScrollExperience() {
           scale: shouldReduceMotion ? 1 : 1.005,
           duration: 0.16,
         },
-        0.16
+        0.2
       );
 
       timeline.fromTo(
@@ -720,7 +811,21 @@ export default function ScrollExperience() {
           filter: "blur(0px)",
           duration: 0.2,
         },
-        0.16
+        0.2
+      );
+
+      addTypingTween(0, 0.23, 0.07);
+      addTypingTween(1, 0.3, 0.1);
+
+      timeline.to(
+        stepDescriptions[0],
+        {
+          autoAlpha: 1,
+          y: 0,
+          filter: "blur(0px)",
+          duration: 0.14,
+        },
+        0.37
       );
 
       timeline.to(
@@ -733,7 +838,7 @@ export default function ScrollExperience() {
           filter: shouldReduceMotion ? "none" : "blur(6px)",
           duration: 0.12,
         },
-        0.38
+        0.48
       );
 
       timeline.fromTo(
@@ -753,7 +858,21 @@ export default function ScrollExperience() {
           filter: "blur(0px)",
           duration: 0.2,
         },
-        0.49
+        0.52
+      );
+
+      addTypingTween(2, 0.55, 0.08);
+      addTypingTween(3, 0.63, 0.1);
+
+      timeline.to(
+        stepDescriptions[1],
+        {
+          autoAlpha: 1,
+          y: 0,
+          filter: "blur(0px)",
+          duration: 0.14,
+        },
+        0.7
       );
 
       timeline.to(
@@ -766,7 +885,7 @@ export default function ScrollExperience() {
           filter: shouldReduceMotion ? "none" : "blur(6px)",
           duration: 0.12,
         },
-        0.72
+        0.79
       );
 
       timeline.fromTo(
@@ -786,7 +905,21 @@ export default function ScrollExperience() {
           filter: "blur(0px)",
           duration: 0.15,
         },
-        0.82
+        0.83
+      );
+
+      addTypingTween(4, 0.86, 0.07);
+      addTypingTween(5, 0.93, 0.09);
+
+      timeline.to(
+        stepDescriptions[2],
+        {
+          autoAlpha: 1,
+          y: 0,
+          filter: "blur(0px)",
+          duration: 0.13,
+        },
+        1
       );
 
       timeline.to(
@@ -796,9 +929,9 @@ export default function ScrollExperience() {
           y: shouldReduceMotion ? 0 : -32,
           scale: shouldReduceMotion ? 1 : 1.02,
           filter: shouldReduceMotion ? "none" : "blur(6px)",
-          duration: 0.12,
+          duration: 0.06,
         },
-        1.02
+        1.18
       );
     }, pin);
 

@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect, useCallback, useSyncExternalStore } from "react";
 import { motion, AnimatePresence, useMotionValueEvent, useScroll } from "framer-motion";
-import { Menu, X, Sun, Moon } from "lucide-react";
+import { Box, LoaderCircle, Menu, X, Sun, Moon } from "lucide-react";
 import { useTheme } from "next-themes";
 import { usePathname } from "next/navigation";
 
@@ -14,6 +14,7 @@ const navLinks = [
 ];
 
 const subscribeToClient = () => () => {};
+type Mobile3DStatus = "idle" | "loading" | "error" | "active";
 
 /** Scroll smoothly to a section by id */
 function scrollToSection(id: string) {
@@ -37,6 +38,8 @@ export default function Navigation() {
   const [scrolled, setScrolled]           = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [activeSection, setActiveSection] = useState("home");
+  const [mobile3DStatus, setMobile3DStatus] =
+    useState<Mobile3DStatus>("idle");
   const { theme, setTheme, systemTheme }  = useTheme();
   const mounted = useSyncExternalStore(
     subscribeToClient,
@@ -100,6 +103,20 @@ export default function Navigation() {
       document.removeEventListener("keydown", handleKey);
     };
   }, [mobileMenuOpen]);
+
+  useEffect(() => {
+    const handle3DStatus = (event: Event) => {
+      const status = (event as CustomEvent<Mobile3DStatus>).detail;
+      if (["idle", "loading", "error", "active"].includes(status)) {
+        setMobile3DStatus(status);
+      }
+    };
+
+    window.addEventListener("portfolio:3d-status", handle3DStatus);
+    return () => {
+      window.removeEventListener("portfolio:3d-status", handle3DStatus);
+    };
+  }, []);
 
   /* ── Handlers ── */
   const handleNavClick = useCallback(
@@ -303,6 +320,78 @@ export default function Navigation() {
 
           {/* Mobile Nav Controls */}
           <div className="mobile-btn" style={{ display: "none", alignItems: "center", gap: "0.75rem" }}>
+            {mounted && (
+              <motion.button
+                type="button"
+                onClick={() => {
+                  setMobile3DStatus("loading");
+                  window.dispatchEvent(new Event("portfolio:enable-3d"));
+                }}
+                aria-label={
+                  mobile3DStatus === "loading"
+                    ? "กำลังเปิดโหมด 3D"
+                    : mobile3DStatus === "active"
+                      ? "เปิดโหมด 3D แล้ว"
+                      : mobile3DStatus === "error"
+                        ? "โหลดโหมด 3D ไม่สำเร็จ กดเพื่อลองใหม่"
+                        : "เปิดโหมด 3D"
+                }
+                title={
+                  mobile3DStatus === "error"
+                    ? "ลองเปิด 3D อีกครั้ง"
+                    : "เปิดโหมด 3D"
+                }
+                disabled={
+                  mobile3DStatus === "loading" ||
+                  mobile3DStatus === "active"
+                }
+                whileTap={{ scale: 0.9 }}
+                whileHover={{ scale: 1.05 }}
+                style={{
+                  background: "var(--bg-elevated)",
+                  border: `1px solid ${
+                    mobile3DStatus === "error"
+                      ? "var(--pink)"
+                      : mobile3DStatus === "active"
+                        ? "var(--cyan)"
+                        : "var(--glass-border)"
+                  }`,
+                  borderRadius: "50%",
+                  width: 40,
+                  height: 40,
+                  color:
+                    mobile3DStatus === "error"
+                      ? "var(--pink)"
+                      : "var(--cyan)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  cursor:
+                    mobile3DStatus === "loading"
+                      ? "wait"
+                      : mobile3DStatus === "active"
+                        ? "default"
+                        : "pointer",
+                  opacity: mobile3DStatus === "loading" ? 0.72 : 1,
+                }}
+              >
+                {mobile3DStatus === "loading" ? (
+                  <motion.span
+                    animate={{ rotate: 360 }}
+                    transition={{
+                      duration: 0.8,
+                      repeat: Infinity,
+                      ease: "linear",
+                    }}
+                    style={{ display: "flex" }}
+                  >
+                    <LoaderCircle size={21} aria-hidden="true" />
+                  </motion.span>
+                ) : (
+                  <Box size={21} aria-hidden="true" />
+                )}
+              </motion.button>
+            )}
             {mounted && (
               <motion.button
                 onClick={toggleTheme}

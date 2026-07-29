@@ -9,19 +9,21 @@ import {
 } from "react";
 
 type ExperienceStatus = "idle" | "loading" | "error";
+const EXPERIENCE_LOAD_TIMEOUT_MS = 15_000;
 
-function LightweightHero({
-  experienceStatus,
-  onEnable3D,
-}: {
-  experienceStatus: ExperienceStatus;
-  onEnable3D: () => void;
-}) {
+function announce3DStatus(status: ExperienceStatus | "active") {
+  window.dispatchEvent(
+    new CustomEvent("portfolio:3d-status", { detail: status })
+  );
+}
+
+function LightweightHero({ is3DLoading }: { is3DLoading: boolean }) {
   return (
     <section
       id="home"
       className="lightweight-hero"
       aria-label="Portfolio introduction"
+      aria-busy={is3DLoading}
     >
       <div className="lightweight-hero__glow" aria-hidden="true" />
 
@@ -50,34 +52,7 @@ function LightweightHero({
           <a href="#contact" className="btn-outline">
             Start a conversation
           </a>
-
-          <button
-            type="button"
-            className="btn-outline mobile-3d-trigger"
-            onClick={onEnable3D}
-            disabled={experienceStatus === "loading"}
-            aria-describedby={
-              experienceStatus === "error" ? "mobile-3d-status" : undefined
-            }
-          >
-            {experienceStatus === "loading"
-              ? "กำลังเปิด 3D..."
-              : experienceStatus === "error"
-                ? "ลองเปิด 3D อีกครั้ง"
-                : "เปิดโหมด 3D"}
-          </button>
         </div>
-
-        <p
-          id="mobile-3d-status"
-          className="mobile-3d-status"
-          role="status"
-          aria-live="polite"
-        >
-          {experienceStatus === "error"
-            ? "โหลดโหมด 3D ไม่สำเร็จ กรุณาตรวจสอบอินเทอร์เน็ตแล้วลองอีกครั้ง"
-            : ""}
-        </p>
       </div>
 
       <div className="lightweight-hero__scroll" aria-hidden="true">
@@ -99,17 +74,32 @@ export default function ScrollExperienceClient() {
     if (experienceStatus === "loading" || DesktopExperience) return;
 
     setExperienceStatus("loading");
+    announce3DStatus("loading");
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
 
     try {
-      const experienceModule = await import("@/components/ScrollExperience");
+      const experienceModule = await Promise.race([
+        import("@/components/ScrollExperience"),
+        new Promise<never>((_, reject) => {
+          timeoutId = globalThis.setTimeout(() => {
+            reject(new Error("3D experience load timed out"));
+          }, EXPERIENCE_LOAD_TIMEOUT_MS);
+        }),
+      ]);
 
       if (mountedRef.current) {
         setDesktopExperience(() => experienceModule.default);
         setExperienceStatus("idle");
+        announce3DStatus("active");
       }
     } catch {
       if (mountedRef.current) {
         setExperienceStatus("error");
+        announce3DStatus("error");
+      }
+    } finally {
+      if (timeoutId !== undefined) {
+        globalThis.clearTimeout(timeoutId);
       }
     }
   }, [DesktopExperience, experienceStatus]);
@@ -120,6 +110,17 @@ export default function ScrollExperienceClient() {
       mountedRef.current = false;
     };
   }, []);
+
+  useEffect(() => {
+    const handleEnable3D = () => {
+      void enable3D();
+    };
+
+    window.addEventListener("portfolio:enable-3d", handleEnable3D);
+    return () => {
+      window.removeEventListener("portfolio:enable-3d", handleEnable3D);
+    };
+  }, [enable3D]);
 
   useEffect(() => {
     const supportsDesktopExperience = window.matchMedia(
@@ -140,9 +141,6 @@ export default function ScrollExperienceClient() {
   return DesktopExperience ? (
     <DesktopExperience />
   ) : (
-    <LightweightHero
-      experienceStatus={experienceStatus}
-      onEnable3D={() => void enable3D()}
-    />
+    <LightweightHero is3DLoading={experienceStatus === "loading"} />
   );
 }
