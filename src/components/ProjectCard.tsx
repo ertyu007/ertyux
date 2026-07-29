@@ -1,5 +1,6 @@
 "use client";
 
+import { motion } from "framer-motion";
 import { ArrowUpRight, Heart, Images } from "lucide-react";
 import { useCallback, type SyntheticEvent } from "react";
 
@@ -40,12 +41,20 @@ export default function ProjectCard({
   );
 
   return (
-    <article className="pgx-card">
-      <button
+    <motion.article
+      className="pgx-card"
+      initial={{ opacity: 0, y: 22, scale: 0.985 }}
+      whileInView={{ opacity: 1, y: 0, scale: 1 }}
+      viewport={{ once: true, margin: "-80px" }}
+      transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1], delay: index * 0.04 }}
+      whileHover={{ y: -2 }}
+    >
+      <motion.button
         type="button"
         className="pgx-card__button"
         onClick={() => onSelect(project.id)}
         aria-label={`เปิดโปรเจกต์ ${project.title}`}
+        whileTap={{ scale: 0.995 }}
       >
         <span className="pgx-card__media">
           <img
@@ -89,7 +98,7 @@ export default function ProjectCard({
 
           <span>ดูรายละเอียด</span>
         </span>
-      </button>
-    </article>
+      </motion.button>
+    </motion.article>
   );
 }

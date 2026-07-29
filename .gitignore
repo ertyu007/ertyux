@@ -30,9 +30,17 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
+# local reports / generated helper scripts
+.antigravity/
+generate-frames.mjs
+next-config-patch.mjs
+seed-db.mjs
+test-db.mjs
+
 # env files (can opt-in for committing if needed)
 .env*
 .env.local
+.env.example
 
 # vercel
 .vercel
@@ -43,3 +51,12 @@ next-env.d.ts
 
 #sql
 schema_audit_logs.sql
+supabase-project-soft-delete.sql
+schema_complete.sql
+
+#md
+SKILLS.md
+AGENTS.md
+CLAUDE.md
+SKILL*.md
+!.agents/skills/**/SKILL.md

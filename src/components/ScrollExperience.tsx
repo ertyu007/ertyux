@@ -10,7 +10,7 @@ import {
 } from "react";
 import type { MutableRefObject, RefObject } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
-import { Float, Sparkles } from "@react-three/drei";
+import { Float, RoundedBox, Sparkles } from "@react-three/drei";
 import { motion, useReducedMotion } from "framer-motion";
 import { ArrowDown, ArrowUpRight } from "lucide-react";
 import { gsap } from "gsap";
@@ -24,6 +24,14 @@ if (typeof window !== "undefined") {
 }
 
 const SCROLL_TRIGGER_ID = "portfolio-scroll-experience";
+const BINARY_STREAMS = [
+  "01001101 01001011",
+  "0011 0101 0101 0001",
+  "11001010 00101101",
+  "0101 0100 0011 0001",
+  "01110111 01100101 01100010",
+  "1010 1100 0101 0010",
+];
 
 const useIsomorphicLayoutEffect =
   typeof window !== "undefined" ? useLayoutEffect : useEffect;
@@ -152,6 +160,26 @@ function FloatingParticles({ count }: { count: number }) {
   );
 }
 
+function BinaryField() {
+  return (
+    <div className="binary-field" aria-hidden="true">
+      {BINARY_STREAMS.map((stream, index) => (
+        <span
+          key={stream}
+          className="binary-field__stream"
+          style={{
+            left: `${12 + (index * 17) % 78}%`,
+            top: `${14 + (index * 19) % 70}%`,
+            animationDelay: `${index * -1.8}s`,
+          }}
+        >
+          {stream}
+        </span>
+      ))}
+    </div>
+  );
+}
+
 function World({
   progressRef,
   quality,
@@ -160,7 +188,7 @@ function World({
   quality: SceneQuality;
 }) {
   const worldRef = useRef<THREE.Group>(null);
-  const primaryShapeRef = useRef<THREE.Mesh>(null);
+  const primaryShapeRef = useRef<THREE.Group>(null);
   const secondaryShapeRef = useRef<THREE.Mesh>(null);
   const orbRef = useRef<THREE.Mesh>(null);
   const ringRef = useRef<THREE.Mesh>(null);
@@ -299,31 +327,36 @@ function World({
   return (
     <group ref={worldRef}>
       <Float speed={1.25} rotationIntensity={0.35} floatIntensity={0.75}>
-        <mesh ref={primaryShapeRef} position={[3.1, 1.4, -1.5]}>
-          <torusKnotGeometry
-            args={
-              quality.compact
-                ? [0.82, 0.22, 72, 10]
-                : [0.92, 0.24, 112, 14]
-            }
-          />
-          <meshStandardMaterial
-            color="#5eead4"
-            emissive="#0f766e"
-            emissiveIntensity={0.38}
-            metalness={0.68}
-            roughness={0.2}
-          />
-        </mesh>
+        <group ref={primaryShapeRef} position={[3.1, 1.4, -1.5]}>
+          <RoundedBox
+            args={quality.compact ? [1.75, 1.75, 1.75] : [2.15, 2.15, 2.15]}
+            radius={0.28}
+            smoothness={5}
+          >
+            <meshStandardMaterial
+              color="#1d4ed8"
+              emissive="#38bdf8"
+              emissiveIntensity={0.42}
+              metalness={0.72}
+              roughness={0.18}
+              transparent
+              opacity={0.9}
+            />
+          </RoundedBox>
+          <lineSegments>
+            <edgesGeometry args={[new THREE.BoxGeometry(2.18, 2.18, 2.18)]} />
+            <lineBasicMaterial color="#8bd7ff" transparent opacity={0.7} />
+          </lineSegments>
+        </group>
       </Float>
 
       <Float speed={0.95} rotationIntensity={0.5} floatIntensity={0.65}>
         <mesh ref={secondaryShapeRef} position={[-3.5, -1.3, -3]}>
-          <icosahedronGeometry args={[1.25, 1]} />
+          <octahedronGeometry args={[1.45, 0]} />
           <meshStandardMaterial
-            color="#c084fc"
-            emissive="#7e22ce"
-            emissiveIntensity={0.28}
+            color="#7dd3fc"
+            emissive="#2563eb"
+            emissiveIntensity={0.34}
             metalness={0.55}
             roughness={0.24}
             wireframe
@@ -337,11 +370,11 @@ function World({
             args={quality.compact ? [0.7, 20, 20] : [0.78, 32, 32]}
           />
           <meshStandardMaterial
-            color="#f9a8d4"
-            emissive="#be185d"
-            emissiveIntensity={0.32}
-            metalness={0.42}
-            roughness={0.16}
+            color="#dbeafe"
+            emissive="#ff375f"
+            emissiveIntensity={0.14}
+            metalness={0.28}
+            roughness={0.2}
             transparent
             opacity={0.88}
           />
@@ -353,9 +386,9 @@ function World({
           args={[2.6, 0.035, 10, quality.compact ? 48 : 80]}
         />
         <meshBasicMaterial
-          color="#67e8f9"
+          color="#8dbdff"
           transparent
-          opacity={0.42}
+          opacity={0.28}
           depthWrite={false}
         />
       </mesh>
@@ -367,29 +400,29 @@ function World({
         scale={[15, 10, 18]}
         size={quality.compact ? 1.7 : 2.2}
         speed={0.22}
-        opacity={0.55}
-        color="#67e8f9"
+        opacity={0.35}
+        color="#8dbdff"
       />
 
-      <ambientLight intensity={0.55} />
+      <ambientLight intensity={0.7} />
       <pointLight
         ref={cursorLightRef}
         position={[0, 0, 4]}
-        color="#5eead4"
-        intensity={2.4}
+        color="#0a84ff"
+        intensity={1.8}
         distance={13}
       />
       <pointLight
         ref={accentLightRef}
         position={[-4, 3, 2]}
-        color="#c084fc"
-        intensity={2.2}
+        color="#5e5ce6"
+        intensity={1.5}
         distance={18}
       />
       <directionalLight
         position={[7, 8, 5]}
         color="#ffffff"
-        intensity={0.8}
+        intensity={0.95}
       />
     </group>
   );
@@ -502,6 +535,8 @@ export default function ScrollExperience() {
   const heroRef = useRef<HTMLDivElement>(null);
   const scrollHintRef = useRef<HTMLDivElement>(null);
   const progressBarRef = useRef<HTMLDivElement>(null);
+  const topGlowRef = useRef<HTMLDivElement>(null);
+  const bottomGlowRef = useRef<HTMLDivElement>(null);
 
   const stepOneRef = useRef<HTMLDivElement>(null);
   const stepTwoRef = useRef<HTMLDivElement>(null);
@@ -530,9 +565,10 @@ export default function ScrollExperience() {
 
       gsap.set(steps, {
         autoAlpha: 0,
-        y: shouldReduceMotion ? 0 : 56,
-        scale: shouldReduceMotion ? 1 : 0.94,
-        filter: shouldReduceMotion ? "none" : "blur(10px)",
+        x: 0,
+        y: shouldReduceMotion ? 0 : 42,
+        scale: shouldReduceMotion ? 1 : 0.97,
+        filter: shouldReduceMotion ? "none" : "blur(6px)",
       });
 
       gsap.set(progressBarRef.current, {
@@ -540,8 +576,33 @@ export default function ScrollExperience() {
         transformOrigin: "top center",
       });
 
+      gsap.set(heroRef.current, {
+        x: 0,
+        y: 0,
+        scale: 1,
+        rotateX: 0,
+        transformPerspective: 1200,
+        transformOrigin: "50% 50%",
+      });
+
+      gsap.set([topGlowRef.current, bottomGlowRef.current], {
+        xPercent: 0,
+        yPercent: 0,
+        scale: 1,
+      });
+
+      if (!shouldReduceMotion) {
+        gsap.to(scrollHintRef.current, {
+          y: -10,
+          duration: 2.8,
+          repeat: -1,
+          yoyo: true,
+          ease: "sine.inOut",
+        });
+      }
+
       const timeline = gsap.timeline({
-        defaults: { ease: "none" },
+        defaults: { ease: "power3.inOut" },
         scrollTrigger: {
           id: SCROLL_TRIGGER_ID,
           trigger: section,
@@ -557,7 +618,7 @@ export default function ScrollExperience() {
 
             return `+=${Math.round(distance)}`;
           },
-          scrub: shouldReduceMotion ? true : 0.65,
+          scrub: shouldReduceMotion ? true : 1.15,
           anticipatePin: 1,
           invalidateOnRefresh: true,
           fastScrollEnd: true,
@@ -578,9 +639,11 @@ export default function ScrollExperience() {
         {
           autoAlpha: 0,
           y: shouldReduceMotion ? 0 : -54,
-          scale: shouldReduceMotion ? 1 : 0.94,
-          filter: shouldReduceMotion ? "none" : "blur(8px)",
-          duration: 0.14,
+          x: shouldReduceMotion ? 0 : -12,
+          scale: shouldReduceMotion ? 1 : 0.975,
+          rotateX: shouldReduceMotion ? 0 : 5,
+          filter: shouldReduceMotion ? "none" : "blur(3px)",
+          duration: 0.2,
         },
         0
       );
@@ -589,87 +652,138 @@ export default function ScrollExperience() {
         scrollHintRef.current,
         {
           autoAlpha: 0,
-          duration: 0.06,
         },
         0
       );
 
+      timeline.to(
+        topGlowRef.current,
+        {
+          xPercent: 10,
+          yPercent: -8,
+          scale: 1.08,
+        },
+        0
+      );
+
+      timeline.to(
+        bottomGlowRef.current,
+        {
+          xPercent: -8,
+          yPercent: 10,
+          scale: 1.1,
+        },
+        0
+      );
+
+      timeline.to(
+        heroRef.current,
+        {
+          y: shouldReduceMotion ? 0 : -10,
+          x: shouldReduceMotion ? 0 : 6,
+          rotateX: shouldReduceMotion ? 0 : -3,
+          scale: shouldReduceMotion ? 1 : 1.005,
+          duration: 0.16,
+        },
+        0.16
+      );
+
       timeline.fromTo(
         stepOneRef.current,
         {
           autoAlpha: 0,
-          y: shouldReduceMotion ? 0 : 56,
-          scale: shouldReduceMotion ? 1 : 0.94,
-          filter: shouldReduceMotion ? "none" : "blur(10px)",
+          x: 0,
+          y: shouldReduceMotion ? 0 : 42,
+          scale: shouldReduceMotion ? 1 : 0.97,
+          filter: shouldReduceMotion ? "none" : "blur(6px)",
         },
         {
           autoAlpha: 1,
+          x: 0,
           y: 0,
           scale: 1,
           filter: "blur(0px)",
-          duration: 0.11,
+          duration: 0.2,
         },
-        0.17
+        0.16
       );
 
       timeline.to(
         stepOneRef.current,
         {
           autoAlpha: 0,
-          y: shouldReduceMotion ? 0 : -48,
-          scale: shouldReduceMotion ? 1 : 1.035,
-          filter: shouldReduceMotion ? "none" : "blur(8px)",
-          duration: 0.09,
+          y: shouldReduceMotion ? 0 : -34,
+          x: shouldReduceMotion ? 0 : -6,
+          scale: shouldReduceMotion ? 1 : 1.02,
+          filter: shouldReduceMotion ? "none" : "blur(6px)",
+          duration: 0.12,
         },
-        0.37
+        0.38
       );
 
       timeline.fromTo(
         stepTwoRef.current,
         {
           autoAlpha: 0,
-          y: shouldReduceMotion ? 0 : 56,
-          scale: shouldReduceMotion ? 1 : 0.94,
-          filter: shouldReduceMotion ? "none" : "blur(10px)",
+          x: 0,
+          y: shouldReduceMotion ? 0 : 42,
+          scale: shouldReduceMotion ? 1 : 0.97,
+          filter: shouldReduceMotion ? "none" : "blur(6px)",
         },
         {
           autoAlpha: 1,
+          x: 0,
           y: 0,
           scale: 1,
           filter: "blur(0px)",
-          duration: 0.11,
+          duration: 0.2,
         },
-        0.42
+        0.49
       );
 
       timeline.to(
         stepTwoRef.current,
         {
           autoAlpha: 0,
-          y: shouldReduceMotion ? 0 : -48,
-          scale: shouldReduceMotion ? 1 : 1.035,
-          filter: shouldReduceMotion ? "none" : "blur(8px)",
-          duration: 0.09,
+          y: shouldReduceMotion ? 0 : -34,
+          x: shouldReduceMotion ? 0 : 6,
+          scale: shouldReduceMotion ? 1 : 1.02,
+          filter: shouldReduceMotion ? "none" : "blur(6px)",
+          duration: 0.12,
         },
-        0.63
+        0.72
       );
 
       timeline.fromTo(
         stepThreeRef.current,
         {
           autoAlpha: 0,
-          y: shouldReduceMotion ? 0 : 56,
-          scale: shouldReduceMotion ? 1 : 0.94,
-          filter: shouldReduceMotion ? "none" : "blur(10px)",
+          x: 0,
+          y: shouldReduceMotion ? 0 : 42,
+          scale: shouldReduceMotion ? 1 : 0.97,
+          filter: shouldReduceMotion ? "none" : "blur(6px)",
         },
         {
           autoAlpha: 1,
+          x: 0,
           y: 0,
           scale: 1,
           filter: "blur(0px)",
+          duration: 0.15,
+        },
+        0.82
+      );
+
+      timeline.to(
+        stepThreeRef.current,
+        {
+          autoAlpha: 0,
+          y: shouldReduceMotion ? 0 : -32,
+          scale: shouldReduceMotion ? 1 : 1.02,
+          filter: shouldReduceMotion ? "none" : "blur(6px)",
           duration: 0.12,
         },
-        0.68
+        1.02
       );
     }, pin);
 
@@ -738,8 +852,8 @@ export default function ScrollExperience() {
                 position: "absolute",
                 inset: 0,
                 background: `
-                  radial-gradient(circle at 72% 25%, rgba(94, 234, 212, 0.18), transparent 30%),
-                  radial-gradient(circle at 25% 70%, rgba(192, 132, 252, 0.17), transparent 32%)
+                  radial-gradient(circle at 72% 25%, rgba(10, 132, 255, 0.16), transparent 30%),
+                  radial-gradient(circle at 25% 70%, rgba(94, 92, 230, 0.14), transparent 32%)
                 `,
               }}
             />
@@ -747,6 +861,7 @@ export default function ScrollExperience() {
         </div>
 
         <div
+          ref={topGlowRef}
           aria-hidden="true"
           style={{
             position: "absolute",
@@ -766,6 +881,7 @@ export default function ScrollExperience() {
         />
 
         <div
+          ref={bottomGlowRef}
           aria-hidden="true"
           style={{
             position: "absolute",
@@ -795,6 +911,8 @@ export default function ScrollExperience() {
             pointerEvents: "none",
           }}
         />
+
+        <BinaryField />
 
         {!quality.compact && (
           <div
@@ -854,7 +972,7 @@ export default function ScrollExperience() {
               transition={{ duration: 0.55, delay: 0.15 }}
             >
               <div
-                className="section-tag"
+                className="section-tag hero-availability"
                 style={{
                   justifyContent: "center",
                   marginBottom: "1.5rem",
@@ -880,8 +998,8 @@ export default function ScrollExperience() {
                     width: 8,
                     height: 8,
                     borderRadius: "50%",
-                    background: "#4ade80",
-                    boxShadow: "0 0 14px rgba(74, 222, 128, 0.8)",
+                    background: "#0a84ff",
+                    boxShadow: "0 0 14px rgba(10, 132, 255, 0.6)",
                   }}
                 />
                 Available for selected projects
@@ -901,49 +1019,67 @@ export default function ScrollExperience() {
               style={{
                 maxWidth: 920,
                 margin: 0,
-                fontSize: "clamp(3.2rem, 10vw, 8rem)",
-                lineHeight: 0.88,
-                letterSpacing: "-0.065em",
+                fontSize: quality.compact
+                  ? "clamp(2.7rem, 16vw, 4.8rem)"
+                  : "clamp(3.2rem, 10vw, 8rem)",
+                lineHeight: quality.compact ? 0.94 : 0.88,
+                letterSpacing: quality.compact ? "-0.052em" : "-0.065em",
                 textWrap: "balance",
               }}
             >
-              CREATIVE
-              <br />
-              <span className="text-gradient">ENGINEERING</span>
+              <motion.span
+                initial={shouldReduceMotion ? false : { opacity: 0, y: 18, filter: "blur(8px)" }}
+                animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+                transition={{ duration: 0.65, delay: 0.3, ease: [0.16, 1, 0.3, 1] }}
+                style={{ display: "block" }}
+              >
+                STUDENT
+              </motion.span>
+              <motion.span
+                initial={shouldReduceMotion ? false : { opacity: 0, y: 18, filter: "blur(8px)" }}
+                animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+                transition={{ duration: 0.75, delay: 0.42, ease: [0.16, 1, 0.3, 1] }}
+                className="text-gradient"
+                style={{ display: "block" }}
+              >
+                CREATOR
+              </motion.span>
             </motion.h1>
 
             <motion.p
+              className="hero-description"
               initial={
-                shouldReduceMotion ? false : { opacity: 0, y: 20 }
+                shouldReduceMotion ? false : { opacity: 0, y: 24, filter: "blur(8px)" }
               }
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: 0.45 }}
+              animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+              transition={{ duration: 0.65, delay: 0.55, ease: [0.16, 1, 0.3, 1] }}
               style={{
                 maxWidth: 620,
-                margin: "1.75rem auto 0",
-                fontSize: "clamp(1rem, 2vw, 1.18rem)",
-                lineHeight: 1.75,
-                color: "var(--fg-dim)",
+                margin: quality.compact ? "1.2rem auto 0" : "1.75rem auto 0",
+                fontSize: quality.compact
+                  ? "clamp(0.94rem, 4vw, 1.05rem)"
+                  : "clamp(1rem, 2vw, 1.18rem)",
+                lineHeight: quality.compact ? 1.65 : 1.75,
                 textWrap: "balance",
               }}
             >
-              Building polished digital products through thoughtful
-              architecture, immersive interaction, and performance-focused
-              development.
+              คิดให้เป็น ทำให้ใช้งานได้จริง ใส่ใจทุกงาน
+              ตั้งแต่เว็บไซต์ ระบบข้อมูล ไปจนถึงคอนเทนต์วิดีโอ
             </motion.p>
 
             <motion.div
               initial={
-                shouldReduceMotion ? false : { opacity: 0, y: 20 }
+                shouldReduceMotion ? false : { opacity: 0, y: 18, scale: 0.98 }
               }
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: 0.62 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              transition={{ duration: 0.6, delay: 0.7, ease: [0.16, 1, 0.3, 1] }}
+              className="hero-actions"
               style={{
                 display: "flex",
                 justifyContent: "center",
                 flexWrap: "wrap",
-                gap: "1rem",
-                marginTop: "2rem",
+                gap: quality.compact ? "0.75rem" : "1rem",
+                marginTop: quality.compact ? "1.5rem" : "2rem",
               }}
             >
               <MagneticButton strength={0.22}>
@@ -999,6 +1135,7 @@ export default function ScrollExperience() {
 
         <div
           ref={scrollHintRef}
+          className="hero-scroll-hint"
           style={{
             position: "absolute",
             bottom: "max(1.5rem, env(safe-area-inset-bottom))",
@@ -1008,7 +1145,6 @@ export default function ScrollExperience() {
             flexDirection: "column",
             alignItems: "center",
             gap: "0.45rem",
-            color: "var(--fg-dim)",
             transform: "translateX(-50%)",
             pointerEvents: "none",
           }}

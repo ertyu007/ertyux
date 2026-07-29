@@ -36,8 +36,10 @@ export default function MagneticButton({ children, className = "", onClick, stre
       onMouseMove={handleMouse}
       onMouseLeave={reset}
       animate={{ x: position.x, y: position.y }}
+      whileHover={{ scale: 1.02 }}
+      whileTap={{ scale: 0.985 }}
       transition={{ type: "spring", stiffness: 150, damping: 15, mass: 0.1 }}
-      style={{ display: "inline-block" }}
+      style={{ display: "inline-block", cursor: "pointer" }}
     >
       {children}
     </motion.div>

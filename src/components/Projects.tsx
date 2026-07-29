@@ -2,6 +2,7 @@
 
 import { AlertCircle, FolderOpen, RefreshCw } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { motion } from "framer-motion";
 
 import { supabase } from "@/lib/supabase";
 import ProjectCard from "./ProjectCard";
@@ -17,6 +18,7 @@ export type ProjectRecord = {
   likes_count?: number | null;
   tags?: unknown;
   created_at?: string | null;
+  deleted_at?: string | null;
 };
 
 export type ProjectViewModel = {
@@ -91,14 +93,20 @@ function mapProject(record: ProjectRecord): ProjectViewModel {
 
 function ProjectSkeleton() {
   return (
-    <article className="pgx-skeleton" aria-hidden="true">
+    <motion.article
+      className="pgx-skeleton"
+      aria-hidden="true"
+      initial={{ opacity: 0, y: 16 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4 }}
+    >
       <div className="pgx-skeleton__image" />
       <div className="pgx-skeleton__content">
         <span />
         <span />
         <span />
       </div>
-    </article>
+    </motion.article>
   );
 }
 
@@ -106,6 +114,7 @@ export default function Projects() {
   const [records, setRecords] = useState<ProjectRecord[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [imagesReady, setImagesReady] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const requestIdRef = useRef(0);
 
@@ -113,12 +122,14 @@ export default function Projects() {
     const requestId = ++requestIdRef.current;
 
     setLoading(true);
+    setImagesReady(false);
     setErrorMessage("");
 
     try {
       const { data, error } = await supabase
         .from("projects")
         .select("*")
+        .is("deleted_at", null)
         .order("created_at", { ascending: false });
 
       if (error) throw error;
@@ -151,13 +162,45 @@ export default function Projects() {
 
   const projects = useMemo(() => records.map(mapProject), [records]);
 
+  useEffect(() => {
+    if (loading) return;
+
+    const imageUrls = [...new Set(
+      projects.flatMap((project) => project.image_urls)
+    )];
+
+    let cancelled = false;
+
+    const preload = imageUrls.map(
+      (url) =>
+        new Promise<void>((resolve) => {
+          const image = new Image();
+          image.onload = () => resolve();
+          image.onerror = () => resolve();
+          image.src = url;
+
+          if (image.complete) {
+            resolve();
+          }
+        })
+    );
+
+    void Promise.all(preload).then(() => {
+      if (!cancelled) setImagesReady(true);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [loading, projects]);
+
   const selectedProject = useMemo(
     () => projects.find((project) => project.id === selectedId) || null,
     [projects, selectedId]
   );
 
   useEffect(() => {
-    if (loading || selectedId || projects.length === 0) return;
+    if (loading || !imagesReady || selectedId || projects.length === 0) return;
 
     const match = window.location.hash.match(/^#project-(.+)$/);
     if (!match) return;
@@ -166,7 +209,7 @@ export default function Projects() {
     if (projects.some((project) => project.id === id)) {
       queueMicrotask(() => setSelectedId(id));
     }
-  }, [loading, projects, selectedId]);
+  }, [imagesReady, loading, projects, selectedId]);
 
   const openProject = useCallback((id: string) => {
     setSelectedId(id);
@@ -196,7 +239,13 @@ export default function Projects() {
   return (
     <section id="projects" className="section pgx-projects">
       <div className="container">
-        <header className="pgx-projects__header">
+        <motion.header
+          className="pgx-projects__header"
+          initial={{ opacity: 0, y: 20, filter: "blur(8px)" }}
+          whileInView={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+          viewport={{ once: true, margin: "-80px" }}
+          transition={{ duration: 0.65, ease: [0.16, 1, 0.3, 1] }}
+        >
           <div>
             <div className="section-tag">Portfolio</div>
             <h2>
@@ -207,33 +256,62 @@ export default function Projects() {
           <p>
             เลือกโปรเจกต์เพื่อดูรายละเอียด รูปภาพ เดโม และซอร์สโค้ด
           </p>
-        </header>
+        </motion.header>
 
         {errorMessage && (
-          <div className="pgx-notice" role="alert">
+          <motion.div
+            className="pgx-notice"
+            role="alert"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.35 }}
+          >
             <AlertCircle size={18} aria-hidden="true" />
             <span>{errorMessage}</span>
             <button type="button" onClick={() => void loadProjects()}>
               <RefreshCw size={15} aria-hidden="true" />
               ลองใหม่
             </button>
-          </div>
+          </motion.div>
         )}
 
-        {loading ? (
-          <div className="pgx-grid" aria-label="กำลังโหลดโปรเจกต์">
-            {[0, 1, 2].map((item) => (
+        {loading || !imagesReady ? (
+          <motion.div
+            className="pgx-grid"
+            aria-label="กำลังโหลดโปรเจกต์"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.3 }}
+          >
+            {Array.from(
+              { length: projects.length > 0 ? Math.min(projects.length, 6) : 3 },
+              (_, item) => item
+            ).map((item) => (
               <ProjectSkeleton key={item} />
             ))}
-          </div>
+          </motion.div>
         ) : projects.length === 0 ? (
-          <div className="pgx-empty">
+          <motion.div
+            className="pgx-empty"
+            initial={{ opacity: 0, scale: 0.98 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.45 }}
+          >
             <FolderOpen size={34} aria-hidden="true" />
             <h3>ยังไม่มีโปรเจกต์</h3>
             <p>โปรเจกต์ที่เผยแพร่แล้วจะแสดงที่นี่</p>
-          </div>
+          </motion.div>
         ) : (
-          <div className="pgx-grid">
+          <motion.div
+            className="pgx-grid"
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true, margin: "-100px" }}
+            variants={{
+              hidden: {},
+              visible: { transition: { staggerChildren: 0.08 } },
+            }}
+          >
             {projects.map((project, index) => (
               <ProjectCard
                 key={project.id}
@@ -242,7 +320,7 @@ export default function Projects() {
                 onSelect={openProject}
               />
             ))}
-          </div>
+          </motion.div>
         )}
       </div>
 

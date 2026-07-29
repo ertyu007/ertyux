@@ -3,26 +3,27 @@
 import { useRef, useState, useEffect } from "react";
 import { motion, useInView, Variants } from "framer-motion";
 import { Code2, Layers, Zap, Globe } from "lucide-react";
+import Image from "next/image";
 
 /* ── Data ── */
 const skills = [
-  "React / Next.js", "TypeScript", "Three.js / WebGL",
-  "Node.js", "PostgreSQL", "Supabase", "Framer Motion",
-  "UI/UX Design", "REST / GraphQL", "Docker", "AWS",
+  "HTML / CSS", "JavaScript", "React / Next.js", "TypeScript",
+  "Python", "C", "Node.js", "Git / GitHub", "Linux",
+  "ESP32 / Arduino", "OpenCV",
 ];
 
 const stats = [
-  { value: 5, suffix: "+", label: "Years Experience" },
-  { value: 40, suffix: "+", label: "Projects Shipped" },
-  { value: 99, suffix: "%", label: "Client Satisfaction" },
-  { value: 0, suffix: "∞", label: "Cups of Coffee" },
+  { value: 12, suffix: "", label: "Public Repositories" },
+  { value: 4, suffix: "", label: "GitHub Stars" },
+  { value: 3, suffix: "", label: "บริการที่รับทำ" },
+  { value: 0, suffix: "∞", label: "ความอยากเรียนรู้" },
 ];
 
 const cards = [
-  { icon: Code2, title: "Frontend", desc: "Pixel-perfect UIs with a focus on micro-interactions and performance.", color: "var(--cyan)" },
-  { icon: Zap, title: "Backend", desc: "Scalable APIs, real-time systems, and reliable cloud infrastructure.", color: "var(--purple)" },
-  { icon: Layers, title: "3D & WebGL", desc: "Immersive 3D experiences using Three.js and React Three Fiber.", color: "var(--pink)" },
-  { icon: Globe, title: "Full-Stack", desc: "End-to-end delivery from database schema to polished deployment.", color: "var(--cyan)" },
+  { icon: Code2, title: "เขียนเว็บไซต์", desc: "รับทำเว็บไซต์ responsive ตั้งแต่หน้าแนะนำตัว เว็บธุรกิจ ไปจนถึงเว็บแอปขนาดเล็ก", color: "var(--cyan)" },
+  { icon: Zap, title: "ปรึกษาเรื่องคอม", desc: "ช่วยวิเคราะห์ปัญหา Windows โปรแกรม เครือข่าย และการตั้งค่าเครื่อง", color: "var(--purple)" },
+  { icon: Layers, title: "ตัดต่อวิดีโอ", desc: "รับตัดต่อวิดีโอสำหรับคอนเทนต์ สื่อการสอน และงานประชาสัมพันธ์", color: "var(--pink)" },
+  { icon: Globe, title: "โปรเจกต์ IoT", desc: "สนใจระบบ ESP32, Arduino, เซนเซอร์ และการเชื่อมต่อฮาร์ดแวร์กับซอฟต์แวร์", color: "var(--cyan)" },
 ];
 
 /* ── Animation variants ── */
@@ -33,14 +34,17 @@ const fadeUp: Variants = {
 
 const stagger: Variants = {
   hidden: {},
-  visible: { transition: { staggerChildren: 0.12 } },
+  visible: { transition: { staggerChildren: 0.1, delayChildren: 0.05 } },
 };
 
 const cardVariant: Variants = {
-  hidden: { opacity: 0, y: 50, scale: 0.95 },
+  hidden: { opacity: 0, y: 44, scale: 0.96, filter: "blur(10px)" },
   visible: {
-    opacity: 1, y: 0, scale: 1,
-    transition: { duration: 0.6, ease: [0.16, 1, 0.3, 1] },
+    opacity: 1,
+    y: 0,
+    scale: 1,
+    filter: "blur(0px)",
+    transition: { duration: 0.7, ease: [0.16, 1, 0.3, 1] },
   },
 };
 
@@ -82,7 +86,7 @@ function AnimatedCounter({ value, suffix, label }: { value: number; suffix: stri
         transition: "var(--transition)",
       }}
       whileHover={{
-        y: -4,
+        y: -6,
         borderColor: "var(--cyan)",
         boxShadow: "0 0 25px var(--cyan-glow)",
       }}
@@ -131,7 +135,7 @@ function CapabilityCard({
         padding: "2rem",
         cursor: "default",
         transition: "var(--transition)",
-        transform: hover ? "translateY(-6px)" : "translateY(0)",
+        transform: hover ? "translateY(-8px)" : "translateY(0)",
         borderColor: hover ? color : undefined,
         boxShadow: hover ? `0 10px 40px ${color}20` : undefined,
       }}
@@ -149,12 +153,19 @@ function CapabilityCard({
           marginBottom: "1.25rem",
           color: color,
           transition: "var(--transition)",
-          transform: hover ? "scale(1.1) rotate(-5deg)" : "scale(1)",
+          transform: hover ? "scale(1.08) rotate(-4deg)" : "scale(1)",
         }}
       >
         <Icon size={24} />
       </div>
-      <h3 style={{ marginBottom: "0.6rem", fontSize: "1.2rem" }}>{title}</h3>
+      <motion.h3
+        initial={{ opacity: 0.88 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.3 }}
+        style={{ marginBottom: "0.6rem", fontSize: "1.2rem" }}
+      >
+        {title}
+      </motion.h3>
       <p style={{ fontSize: "0.9rem", lineHeight: 1.7 }}>{desc}</p>
     </motion.div>
   );
@@ -171,20 +182,38 @@ export default function About() {
           whileInView="visible"
           viewport={{ once: true, margin: "-80px" }}
           variants={fadeUp}
-          style={{ marginBottom: "3.5rem" }}
+          className="about-intro"
+          style={{ marginBottom: "2rem" }}
         >
+          <Image
+            src="/profile.jpg"
+            alt="Thanaphat Karajhak (MK)"
+            width={190}
+            height={230}
+            sizes="(max-width: 520px) 150px, 190px"
+            className="about-profile-image"
+            priority={false}
+          />
           <div className="section-tag">About</div>
-          <h2 style={{ marginBottom: "1rem" }}>
-            Who I <span className="text-gradient">Am</span>
+          <h2 style={{ marginBottom: "0.45rem" }}>
+            Thanaphat <span className="text-gradient">Karajhak</span>
           </h2>
-          <p style={{ maxWidth: "620px", fontSize: "1.1rem" }}>
-            I&apos;m a Senior Software Engineer who bridges the gap between
-            engineering rigor and creative design. I build products that don&apos;t
-            just work — they{" "}
-            <em style={{ color: "var(--cyan)", fontStyle: "normal", fontWeight: 600 }}>
-              feel
-            </em>{" "}
-            exceptional to use.
+          <p style={{ marginBottom: "1rem", fontWeight: 600 }}>
+            นายธนภัทร การะจักษ์ — เอ็มเค (MK)
+          </p>
+          <motion.p
+            initial={{ opacity: 0, y: 18, filter: "blur(8px)" }}
+            whileInView={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+            viewport={{ once: true, margin: "-60px" }}
+            transition={{ duration: 0.65, ease: [0.16, 1, 0.3, 1], delay: 0.12 }}
+            style={{ maxWidth: "620px", fontSize: "1.1rem" }}
+          >
+            ตอนนี้ผมเป็นนักเรียนที่สนใจด้านคอมพิวเตอร์ การเขียนโปรแกรม และงานดิจิทัล
+            รับงานเขียนเว็บไซต์ ปรึกษาเรื่องคอม และรับตัดต่อวิดีโอ โดยตั้งใจเรียนรู้จากทุกโปรเจกต์
+          </motion.p>
+          <p style={{ maxWidth: "620px", marginTop: "0.75rem", fontSize: "0.95rem" }}>
+            นักเรียน ปวส. 1 เทคนิคคอมพิวเตอร์ วิทยาลัยเทคนิคอำนาจเจริญ อายุ 18 ปี
+            รับงานแบบ WFH หรือพื้นที่ใกล้เคียงอำนาจเจริญ
           </p>
         </motion.div>
 
@@ -194,6 +223,7 @@ export default function About() {
           whileInView="visible"
           viewport={{ once: true, margin: "-60px" }}
           variants={stagger}
+          className="about-capabilities"
           style={{
             display: "grid",
             gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))",
@@ -212,6 +242,7 @@ export default function About() {
           whileInView="visible"
           viewport={{ once: true, margin: "-60px" }}
           variants={stagger}
+          className="about-stats"
           style={{
             display: "grid",
             gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
@@ -232,7 +263,8 @@ export default function About() {
           variants={fadeUp}
         >
           <p
-            style={{
+          className="about-stack"
+          style={{
               fontSize: "0.78rem",
               letterSpacing: "2px",
               textTransform: "uppercase",
@@ -246,12 +278,12 @@ export default function About() {
             {skills.map((skill, i) => (
               <motion.span
                 key={skill}
-                initial={{ opacity: 0, scale: 0.8 }}
-                whileInView={{ opacity: 1, scale: 1 }}
+                initial={{ opacity: 0, y: 8, scale: 0.94 }}
+                whileInView={{ opacity: 1, y: 0, scale: 1 }}
                 viewport={{ once: true }}
-                transition={{ delay: i * 0.04, duration: 0.4 }}
+                transition={{ delay: i * 0.035, duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
                 whileHover={{
-                  scale: 1.08,
+                  scale: 1.06,
                   borderColor: "var(--cyan)",
                   color: "var(--cyan)",
                   background: "var(--cyan-subtle)",

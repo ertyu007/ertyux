@@ -57,6 +57,7 @@ const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 const LOGIN_WINDOW_MS = 15 * 60 * 1000;
 const LOGIN_LOCK_MS = 15 * 60 * 1000;
 const MAX_LOGIN_ATTEMPTS = 5;
+const PROJECT_PURGE_DAYS = 30;
 
 const loginAttempts = new Map<string, LoginAttempt>();
 
@@ -563,7 +564,6 @@ async function verifyUploadedImages(
   uploads: UploadedImageProof[]
 ): Promise<{ images: VerifiedUpload[]; error?: string }> {
   const uniquePaths = new Set<string>();
-  const images: VerifiedUpload[] = [];
 
   for (const upload of uploads) {
     if (uniquePaths.has(upload.path)) {
@@ -571,20 +571,24 @@ async function verifyUploadedImages(
       return { images: [], error: "Duplicate uploaded images were detected." };
     }
     uniquePaths.add(upload.path);
-
-    const result = await verifyUploadedImage(upload);
-    if (!result.image || result.error) {
-      await removeVerifiedUploadFiles(uploads);
-      return {
-        images: [],
-        error: result.error || "Unable to verify an uploaded image.",
-      };
-    }
-
-    images.push(result.image);
   }
 
-  return { images };
+  const results = await Promise.all(
+    uploads.map(async (upload) => verifyUploadedImage(upload))
+  );
+  const failed = results.find((result) => !result.image || result.error);
+
+  if (failed) {
+    await removeVerifiedUploadFiles(uploads);
+    return {
+      images: [],
+      error: failed.error || "Unable to verify an uploaded image.",
+    };
+  }
+
+  return {
+    images: results.map((result) => result.image as VerifiedUpload),
+  };
 }
 
 export async function verifyAdminAuth(): Promise<boolean> {
@@ -717,7 +721,7 @@ export async function prepareProjectUploads(
   }
 
   const clientIds = new Set<string>();
-  const uploads: UploadTicket[] = [];
+  const validatedFiles: UploadRequest[] = [];
 
   for (const file of files) {
     const validationError = validateUploadRequest(file);
@@ -727,39 +731,53 @@ export async function prepareProjectUploads(
       return { success: false, error: "Duplicate image IDs were detected." };
     }
     clientIds.add(file.clientId);
-
-    const contentType = file.contentType.toLowerCase();
-    const extension = MIME_EXTENSIONS[contentType];
-    const path = `projects/${new Date().getUTCFullYear()}/${randomUUID()}.${extension}`;
-
-    const { data, error } = await supabaseAdmin.storage
-      .from(STORAGE_BUCKET)
-      .createSignedUploadUrl(path, { upsert: false });
-
-    if (error || !data?.token) {
-      return {
-        success: false,
-        error: `Could not prepare ${file.name}: ${
-          error?.message || "Missing upload token."
-        }`,
-      };
-    }
-
-    const unsigned: Omit<UploadedImageProof, "signature"> = {
-      clientId: file.clientId,
-      path,
-      size: file.size,
-      contentType,
-    };
-
-    uploads.push({
-      ...unsigned,
-      token: data.token,
-      signature: createUploadSignature(unsigned),
-    });
+    validatedFiles.push(file);
   }
 
-  return { success: true, uploads };
+  try {
+    const uploads = await Promise.all(
+      validatedFiles.map(async (file) => {
+        const contentType = file.contentType.toLowerCase();
+        const extension = MIME_EXTENSIONS[contentType];
+        const path = `projects/${new Date().getUTCFullYear()}/${randomUUID()}.${extension}`;
+
+        const { data, error } = await supabaseAdmin.storage
+          .from(STORAGE_BUCKET)
+          .createSignedUploadUrl(path, { upsert: false });
+
+        if (error || !data?.token) {
+          throw new Error(
+            `Could not prepare ${file.name}: ${
+              error?.message || "Missing upload token."
+            }`
+          );
+        }
+
+        const unsigned: Omit<UploadedImageProof, "signature"> = {
+          clientId: file.clientId,
+          path,
+          size: file.size,
+          contentType,
+        };
+
+        return {
+          ...unsigned,
+          token: data.token,
+          signature: createUploadSignature(unsigned),
+        };
+      })
+    );
+
+    return { success: true, uploads };
+  } catch (error) {
+    return {
+      success: false,
+      error:
+        error instanceof Error
+          ? error.message
+          : "Unable to prepare image uploads.",
+    };
+  }
 }
 
 export async function discardProjectUploads(
@@ -997,7 +1015,7 @@ export async function deleteProject(id: string): Promise<ActionResult> {
 
   const { data: existing, error: existingError } = await supabaseAdmin
     .from("projects")
-    .select("image_url")
+    .select("id,deleted_at")
     .eq("id", id)
     .single();
 
@@ -1005,6 +1023,115 @@ export async function deleteProject(id: string): Promise<ActionResult> {
     return {
       success: false,
       error: existingError?.message || "Project not found.",
+    };
+  }
+
+  if (existing.deleted_at) {
+    return { success: true, warning: "Project is already in the recycle bin." };
+  }
+
+  const { error: updateError } = await supabaseAdmin
+    .from("projects")
+    .update({ deleted_at: new Date().toISOString() })
+    .eq("id", id);
+
+  if (updateError) return { success: false, error: updateError.message };
+
+  await safeLog({
+    eventType: "DATA_MUTATION",
+    severity: "INFO",
+    ipAddress: client.ip,
+    userAgent: client.userAgent,
+    path: `/admin/deleteProject/${id}`,
+    method: "POST",
+    details: { action: "SOFT_DELETE_PROJECT", projectId: id },
+  });
+
+  revalidatePath("/");
+  revalidatePath("/admin");
+
+  return { success: true };
+}
+
+export async function restoreProject(id: string): Promise<ActionResult> {
+  const client = await getClientInfo();
+
+  if (!(await verifyAdminAuth())) {
+    await safeLog({
+      eventType: "UNAUTHORIZED_ACCESS",
+      severity: "CRITICAL",
+      ipAddress: client.ip,
+      userAgent: client.userAgent,
+      path: `/admin/restoreProject/${id}`,
+      method: "POST",
+    });
+    return { success: false, error: "Unauthorized access." };
+  }
+
+  if (!id) return { success: false, error: "Missing project ID." };
+
+  const { error } = await supabaseAdmin
+    .from("projects")
+    .update({ deleted_at: null })
+    .eq("id", id);
+
+  if (error) return { success: false, error: error.message };
+
+  await safeLog({
+    eventType: "DATA_MUTATION",
+    severity: "INFO",
+    ipAddress: client.ip,
+    userAgent: client.userAgent,
+    path: `/admin/restoreProject/${id}`,
+    method: "POST",
+    details: { action: "RESTORE_PROJECT", projectId: id },
+  });
+
+  revalidatePath("/");
+  revalidatePath("/admin");
+  return { success: true };
+}
+
+export async function purgeDeletedProject(id: string): Promise<ActionResult> {
+  const client = await getClientInfo();
+
+  if (!(await verifyAdminAuth())) {
+    await safeLog({
+      eventType: "UNAUTHORIZED_ACCESS",
+      severity: "CRITICAL",
+      ipAddress: client.ip,
+      userAgent: client.userAgent,
+      path: `/admin/purgeDeletedProject/${id}`,
+      method: "POST",
+    });
+    return { success: false, error: "Unauthorized access." };
+  }
+
+  if (!id) return { success: false, error: "Missing project ID." };
+
+  const { data: existing, error: existingError } = await supabaseAdmin
+    .from("projects")
+    .select("image_url,deleted_at")
+    .eq("id", id)
+    .single();
+
+  if (existingError || !existing) {
+    return {
+      success: false,
+      error: existingError?.message || "Project not found.",
+    };
+  }
+
+  if (!existing.deleted_at) {
+    return { success: false, error: "Only deleted projects can be purged." };
+  }
+
+  const deletedAt = new Date(existing.deleted_at).getTime();
+  const purgeAt = deletedAt + PROJECT_PURGE_DAYS * 24 * 60 * 60 * 1000;
+  if (!Number.isFinite(deletedAt) || Date.now() < purgeAt) {
+    return {
+      success: false,
+      error: `Permanent deletion is available ${PROJECT_PURGE_DAYS} days after deletion.`,
     };
   }
 
@@ -1026,9 +1153,9 @@ export async function deleteProject(id: string): Promise<ActionResult> {
     severity: "INFO",
     ipAddress: client.ip,
     userAgent: client.userAgent,
-    path: `/admin/deleteProject/${id}`,
+    path: `/admin/purgeDeletedProject/${id}`,
     method: "POST",
-    details: { action: "DELETE_PROJECT", projectId: id },
+    details: { action: "PURGE_PROJECT", projectId: id },
   });
 
   revalidatePath("/");
@@ -1037,7 +1164,7 @@ export async function deleteProject(id: string): Promise<ActionResult> {
   return {
     success: true,
     warning: cleanupError
-      ? `Project deleted, but some stored images could not be removed: ${cleanupError}`
+      ? `Project permanently deleted, but some stored images could not be removed: ${cleanupError}`
       : undefined,
   };
 }

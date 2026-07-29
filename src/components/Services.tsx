@@ -7,33 +7,34 @@ import { Code, Palette, Box, ArrowRight } from "lucide-react";
 const services = [
   {
     icon: Code,
-    title: "Web Development",
-    description: "Building fast, responsive, and accessible websites using modern frameworks like Next.js and React.",
+    title: "รับเขียนเว็บไซต์",
+    description: "รับทำเว็บร้านค้าและหน้าเว็บไซต์ เชื่อมฐานข้อมูลและ deploy ให้ได้ โดยรับเฉพาะงานฝั่งเว็บไซต์",
     gradient: "linear-gradient(135deg, #4fd1c5, #319795)",
   },
   {
     icon: Palette,
-    title: "UI/UX Design",
-    description: "Crafting intuitive and minimalist interfaces with a focus on usability and elegant neumorphic aesthetics.",
+    title: "ปรึกษาเรื่องคอม",
+    description: "ปรึกษาผ่านแชตหรือ Remote ช่วยแก้ปัญหาโปรแกรม Windows เครือข่าย และการตั้งค่าเครื่อง",
     gradient: "linear-gradient(135deg, #b794f4, #805ad5)",
   },
   {
     icon: Box,
-    title: "3D Experiences",
-    description: "Developing immersive, interactive 3D web experiences using WebGL, Three.js, and React Three Fiber.",
+    title: "รับตัดต่อวิดีโอ",
+    description: "รับตัดวิดีโอโปรโมตและวิดีโอเล่น ๆ ด้วย CapCut, After Effects และ Premiere Pro",
     gradient: "linear-gradient(135deg, #f687b3, #d53f8c)",
   },
 ];
 
 const cardVariant: Variants = {
-  hidden: { opacity: 0, y: 60, rotateX: 8 },
+  hidden: { opacity: 0, y: 54, rotateX: 10, filter: "blur(10px)" },
   visible: (i: number) => ({
     opacity: 1,
     y: 0,
     rotateX: 0,
+    filter: "blur(0px)",
     transition: {
-      delay: i * 0.15,
-      duration: 0.7,
+      delay: i * 0.12,
+      duration: 0.75,
       ease: [0.16, 1, 0.3, 1],
     },
   }),
@@ -81,7 +82,7 @@ function ServiceCard({
         perspective: "1000px",
         cursor: "default",
       }}
-      whileHover={{ y: -8, scale: 1.02 }}
+      whileHover={{ y: -10, scale: 1.015 }}
       transition={{ type: "spring", stiffness: 300, damping: 20 }}
     >
       {/* Icon with gradient background */}
@@ -120,7 +121,7 @@ function ServiceCard({
           cursor: "pointer",
           transition: "var(--transition)",
         }}
-        whileHover={{ x: 6 }}
+        whileHover={{ x: 8, opacity: 1 }}
       >
         Learn More <ArrowRight size={16} />
       </motion.a>
@@ -131,13 +132,13 @@ function ServiceCard({
 export default function Services() {
   return (
     <section id="services" className="section container">
-      <motion.div
-        initial={{ opacity: 0, y: 30 }}
-        whileInView={{ opacity: 1, y: 0 }}
-        viewport={{ once: true, margin: "-100px" }}
-        transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
-        style={{ textAlign: "center", marginBottom: "4rem" }}
-      >
+        <motion.div
+          initial={{ opacity: 0, y: 30 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, margin: "-100px" }}
+          transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
+          style={{ textAlign: "center", marginBottom: "4rem" }}
+        >
         <div className="section-tag" style={{ justifyContent: "center" }}>What I Do</div>
         <h2>
           My <span className="text-gradient">Services</span>

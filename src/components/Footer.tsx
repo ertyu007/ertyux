@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { ArrowUp } from "lucide-react";
+import { ArrowUp, ArrowUpRight, Music2, Video } from "lucide-react";
 
 // Inline SVG components for social icons
 const GithubIcon = ({ size = 18 }: { size?: number }) => (
@@ -11,24 +11,10 @@ const GithubIcon = ({ size = 18 }: { size?: number }) => (
   </svg>
 );
 
-const TwitterIcon = ({ size = 18 }: { size?: number }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M22 4s-.7 2.1-2 3.4c1.6 10-9.4 17.3-18 11.6 2.2.1 4.4-.6 6-2C3 15.5.5 9.6 3 5c2.2 2.6 5.6 4.1 9 4-.9-4.2 4-6.6 7-3.8 1.1 0 3-1.2 3-1.2z" />
-  </svg>
-);
-
-const LinkedinIcon = ({ size = 18 }: { size?: number }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z" />
-    <rect width="4" height="12" x="2" y="9" />
-    <circle cx="4" cy="4" r="2" />
-  </svg>
-);
-
 const socials = [
-  { icon: GithubIcon, href: "#", label: "GitHub" },
-  { icon: TwitterIcon, href: "#", label: "Twitter" },
-  { icon: LinkedinIcon, href: "#", label: "LinkedIn" },
+  { icon: GithubIcon, href: "https://github.com/ertyu007", label: "GitHub" },
+  { icon: Music2, href: "https://www.tiktok.com/@ertyu0075", label: "TikTok" },
+  { icon: Video, href: "https://youtube.com/@amazingwuji", label: "YouTube" },
 ];
 
 const navLinks = [
@@ -42,7 +28,10 @@ const navLinks = [
 /** Scroll smoothly to a section by id */
 function scrollToSection(id: string) {
   if (id === "home") {
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+    window.requestAnimationFrame(() => {
+      window.dispatchEvent(new Event("scroll"));
+    });
     return;
   }
   const el = document.getElementById(id);
@@ -52,7 +41,7 @@ function scrollToSection(id: string) {
 }
 
 export default function Footer() {
-  const scrollToTop = () => window.scrollTo({ top: 0, behavior: "smooth" });
+  const scrollToTop = () => scrollToSection("home");
   const year = new Date().getFullYear();
 
   const handleNavClick = (e: React.MouseEvent, id: string) => {
@@ -62,58 +51,84 @@ export default function Footer() {
   };
 
   return (
-    <footer style={{ position: "relative", padding: "4rem 0 2.5rem", background: "var(--bg)" }}>
-      {/* Top subtle gradient line */}
+    <footer
+      style={{
+        position: "relative",
+        overflow: "hidden",
+        padding: "clamp(4rem, 8vw, 6rem) 0 2rem",
+        background: "var(--bg)",
+      }}
+    >
       <div
+        aria-hidden="true"
         style={{
-          height: 1,
-          background: "linear-gradient(90deg, transparent, var(--cyan), var(--purple), transparent)",
-          opacity: 0.3,
-          marginBottom: "3rem",
+          position: "absolute",
+          inset: "auto -10% 0 -10%",
+          height: "70%",
+          background:
+            "radial-gradient(circle at 18% 80%, var(--cyan-glow), transparent 34%), radial-gradient(circle at 78% 35%, var(--purple-glow), transparent 32%)",
+          filter: "blur(36px)",
+          opacity: 0.7,
+          pointerEvents: "none",
         }}
       />
 
-      <div className="container">
+      <div
+        aria-hidden="true"
+        style={{
+          height: 1,
+          background: "linear-gradient(90deg, transparent, var(--cyan), var(--purple), transparent)",
+          opacity: 0.45,
+          marginBottom: "2rem",
+        }}
+      />
+
+      <div className="container" style={{ position: "relative" }}>
         <motion.div
-          initial={{ opacity: 0, y: 15 }}
-          whileInView={{ opacity: 1, y: 0 }}
+          initial={{ opacity: 0, y: 24, filter: "blur(8px)" }}
+          whileInView={{ opacity: 1, y: 0, filter: "blur(0px)" }}
           viewport={{ once: true }}
-          transition={{ duration: 0.5 }}
+          transition={{ duration: 0.75, ease: [0.16, 1, 0.3, 1] }}
+          className="glass-card footer-panel"
           style={{
-            display: "flex",
+            display: "grid",
+            gridTemplateColumns: "minmax(240px, 1.1fr) minmax(220px, 0.9fr) auto",
+            gap: "clamp(1.5rem, 4vw, 3rem)",
             alignItems: "center",
-            justifyContent: "space-between",
-            flexWrap: "wrap",
-            gap: "2rem",
-            marginBottom: "2.5rem",
+            padding: "clamp(1.4rem, 4vw, 2rem)",
+            marginBottom: "1rem",
+            background: "var(--bg-elevated)",
+            border: "1px solid rgba(10, 132, 255, 0.14)",
+            boxShadow: "0 18px 50px rgba(15, 23, 42, 0.08)",
           }}
         >
-          {/* Brand */}
-          <div>
+          <div style={{ minWidth: 0 }}>
             <div
               style={{
                 fontFamily: "'Space Grotesk', sans-serif",
                 fontWeight: 900,
-                fontSize: "1.35rem",
-                letterSpacing: "-0.02em",
+                fontSize: "clamp(1.65rem, 4vw, 2.4rem)",
+                letterSpacing: "0",
+                marginBottom: "0.7rem",
               }}
               className="text-gradient"
             >
-              PORTFOLIO
+              PORTFOLIO.
             </div>
+            <p style={{ maxWidth: 420, margin: 0, fontSize: "0.92rem" }}>
+              Polished interfaces, smooth interaction, and practical engineering for digital products that feel good to use.
+            </p>
           </div>
 
-          {/* Minimal Links */}
           <nav aria-label="Footer navigation">
             <ul
               style={{
                 listStyle: "none",
-                display: "flex",
-                alignItems: "center",
-                gap: "1.8rem",
+                display: "grid",
+                gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+                gap: "0.65rem 1.25rem",
                 margin: 0,
                 padding: 0,
-                flexWrap: "wrap",
               }}
             >
               {navLinks.map((link) => (
@@ -123,88 +138,101 @@ export default function Footer() {
                     onClick={(e) => handleNavClick(e, link.id)}
                     style={{
                       color: "var(--fg-dim)",
-                      fontSize: "0.88rem",
+                      fontSize: "0.9rem",
                       textDecoration: "none",
                       transition: "var(--transition)",
-                      fontWeight: 500,
+                      fontWeight: 700,
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "0.35rem",
                     }}
-                    whileHover={{ color: "var(--cyan)" }}
+                    whileHover={{ color: "var(--cyan)", x: 4 }}
                   >
                     {link.name}
+                    <ArrowUpRight size={13} aria-hidden="true" />
                   </motion.a>
                 </li>
               ))}
             </ul>
           </nav>
 
-          {/* Social Icons */}
-          <div style={{ display: "flex", gap: "0.6rem" }}>
-            {socials.map(({ icon: Icon, href, label }) => (
-              <motion.a
-                key={label}
-                href={href}
-                target="_blank"
-                rel="noreferrer"
-                aria-label={label}
-                whileHover={{ y: -2, color: "var(--cyan)", borderColor: "var(--cyan)" }}
-                whileTap={{ scale: 0.95 }}
-                style={{
-                  width: 38,
-                  height: 38,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  borderRadius: "50%",
-                  border: "1px solid var(--glass-border)",
-                  color: "var(--fg-dim)",
-                  transition: "var(--transition)",
-                  background: "var(--glass-bg)",
-                }}
-              >
-                <Icon size={16} />
-              </motion.a>
-            ))}
+          <div className="footer-panel__actions" style={{ display: "grid", gap: "0.85rem", justifyItems: "end" }}>
+            <div style={{ display: "flex", gap: "0.6rem" }}>
+              {socials.map(({ icon: Icon, href, label }) => (
+                <motion.a
+                  key={label}
+                  href={href}
+                  target="_blank"
+                  rel="noreferrer"
+                  aria-label={label}
+                  whileHover={{ y: -4, color: "var(--cyan)", borderColor: "var(--cyan)", scale: 1.04 }}
+                  whileTap={{ scale: 0.95 }}
+                  style={{
+                    width: 42,
+                    height: 42,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    borderRadius: "50%",
+                    border: "1px solid rgba(10, 132, 255, 0.16)",
+                    color: "var(--fg-dim)",
+                    transition: "var(--transition)",
+                    background: "var(--bg-elevated)",
+                    boxShadow: "0 10px 24px rgba(15, 23, 42, 0.06)",
+                  }}
+                >
+                  <Icon size={17} />
+                </motion.a>
+              ))}
+            </div>
+
+            <motion.button
+              onClick={scrollToTop}
+              whileHover={{ y: -3, color: "var(--cyan)", borderColor: "var(--cyan)", scale: 1.02 }}
+              whileTap={{ scale: 0.95 }}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: "0.45rem",
+                minHeight: 42,
+                background: "linear-gradient(135deg, rgba(10,132,255,0.12), rgba(94,92,230,0.08))",
+                border: "1px solid rgba(10, 132, 255, 0.18)",
+                borderRadius: "var(--radius-full)",
+                padding: "0.55rem 1rem",
+                color: "var(--fg)",
+                fontSize: "0.82rem",
+                fontWeight: 800,
+                cursor: "pointer",
+                transition: "var(--transition)",
+              }}
+            >
+              <ArrowUp size={14} /> Back to top
+            </motion.button>
           </div>
         </motion.div>
 
-        {/* Bottom bar */}
-        <div
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.55, delay: 0.08 }}
           style={{
             display: "flex",
             justifyContent: "space-between",
             alignItems: "center",
             flexWrap: "wrap",
             gap: "1rem",
-            borderTop: "1px solid var(--glass-border)",
-            paddingTop: "1.5rem",
+            padding: "0.75rem 0.25rem 0",
           }}
         >
           <p style={{ fontSize: "0.82rem", color: "var(--fg-dim)", margin: 0 }}>
             © {year} PORTFOLIO. All rights reserved.
           </p>
-
-          <motion.button
-            onClick={scrollToTop}
-            whileHover={{ y: -2, color: "var(--cyan)", borderColor: "var(--cyan)" }}
-            whileTap={{ scale: 0.95 }}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "0.4rem",
-              background: "var(--glass-bg)",
-              border: "1px solid var(--glass-border)",
-              borderRadius: "var(--radius-full)",
-              padding: "0.45rem 1.1rem",
-              color: "var(--fg-dim)",
-              fontSize: "0.8rem",
-              fontWeight: 500,
-              cursor: "pointer",
-              transition: "var(--transition)",
-            }}
-          >
-            <ArrowUp size={13} /> Back to top
-          </motion.button>
-        </div>
+          <p style={{ fontSize: "0.82rem", color: "var(--fg-dim)", margin: 0 }}>
+            Built with Next.js, Three.js, and a little motion polish.
+          </p>
+        </motion.div>
       </div>
     </footer>
   );

@@ -8,8 +8,11 @@ import {
   ExternalLink,
   Heart,
   Images,
+  Maximize2,
   Share2,
   X,
+  ZoomIn,
+  ZoomOut,
 } from "lucide-react";
 import {
   useCallback,
@@ -19,8 +22,8 @@ import {
   useState,
   useSyncExternalStore,
   type KeyboardEvent as ReactKeyboardEvent,
+  type PointerEvent as ReactPointerEvent,
   type SyntheticEvent,
-  type TouchEvent,
 } from "react";
 import { createPortal } from "react-dom";
 
@@ -48,6 +51,62 @@ const FALLBACK_IMAGE =
 
 const subscribeToClient = () => () => {};
 
+function drawCanvasGrid(
+  context: CanvasRenderingContext2D,
+  width: number,
+  height: number
+) {
+  context.fillStyle = "#05060a";
+  context.fillRect(0, 0, width, height);
+
+  const drawLines = (step: number, color: string, lineWidth: number) => {
+    context.beginPath();
+    context.strokeStyle = color;
+    context.lineWidth = lineWidth;
+
+    for (let x = 0; x <= width; x += step) {
+      context.moveTo(x + 0.5, 0);
+      context.lineTo(x + 0.5, height);
+    }
+
+    for (let y = 0; y <= height; y += step) {
+      context.moveTo(0, y + 0.5);
+      context.lineTo(width, y + 0.5);
+    }
+
+    context.stroke();
+  };
+
+  drawLines(24, "rgba(255,255,255,0.035)", 1);
+  drawLines(96, "rgba(94,234,212,0.08)", 1);
+
+  const glow = context.createRadialGradient(
+    width / 2,
+    height * 0.42,
+    0,
+    width / 2,
+    height * 0.42,
+    Math.max(width, height) * 0.55
+  );
+  glow.addColorStop(0, "rgba(94,234,212,0.10)");
+  glow.addColorStop(1, "rgba(94,234,212,0)");
+  context.fillStyle = glow;
+  context.fillRect(0, 0, width, height);
+
+  const vignette = context.createRadialGradient(
+    width / 2,
+    height / 2,
+    Math.min(width, height) * 0.18,
+    width / 2,
+    height / 2,
+    Math.max(width, height) * 0.68
+  );
+  vignette.addColorStop(0, "rgba(5,6,10,0)");
+  vignette.addColorStop(1, "rgba(5,6,10,0.68)");
+  context.fillStyle = vignette;
+  context.fillRect(0, 0, width, height);
+}
+
 function getFocusableElements(container: HTMLElement): HTMLElement[] {
   return Array.from(
     container.querySelectorAll<HTMLElement>(
@@ -62,9 +121,14 @@ export default function ProjectViewer({
   onLike,
 }: ProjectViewerProps) {
   const panelRef = useRef<HTMLElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const stageRef = useRef<HTMLDivElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
-  const touchStartRef = useRef<{ x: number; y: number } | null>(null);
+  const imageRef = useRef<HTMLImageElement | null>(null);
+  const dragRef = useRef<{ pointerId: number; x: number; y: number } | null>(
+    null
+  );
   const copiedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const mounted = useSyncExternalStore(
@@ -80,6 +144,10 @@ export default function ProjectViewer({
   const [liking, setLiking] = useState(false);
   const [copied, setCopied] = useState(false);
   const [statusMessage, setStatusMessage] = useState("");
+  const [zoom, setZoom] = useState(1);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 });
+  const [loadedImageSrc, setLoadedImageSrc] = useState<string>("");
 
   const images = useMemo(
     () =>
@@ -94,6 +162,11 @@ export default function ProjectViewer({
 
   const currentImage = images[selectedIndex] || FALLBACK_IMAGE;
   const hasMultipleImages = images.length > 1;
+
+  const resetCanvasView = useCallback(() => {
+    setZoom(1);
+    setPan({ x: 0, y: 0 });
+  }, []);
 
   useEffect(() => {
     queueMicrotask(() => {
@@ -113,15 +186,17 @@ export default function ProjectViewer({
 
   const goPrevious = useCallback(() => {
     if (!hasMultipleImages) return;
+    resetCanvasView();
     setSelectedIndex((current) =>
       current === 0 ? images.length - 1 : current - 1
     );
-  }, [hasMultipleImages, images.length]);
+  }, [hasMultipleImages, images.length, resetCanvasView]);
 
   const goNext = useCallback(() => {
     if (!hasMultipleImages) return;
+    resetCanvasView();
     setSelectedIndex((current) => (current + 1) % images.length);
-  }, [hasMultipleImages, images.length]);
+  }, [hasMultipleImages, images.length, resetCanvasView]);
 
   useEffect(() => {
     previousFocusRef.current =
@@ -206,6 +281,186 @@ export default function ProjectViewer({
     },
     []
   );
+
+  useEffect(() => {
+    const stage = stageRef.current;
+    if (!stage) return;
+
+    const updateSize = () => {
+      const rect = stage.getBoundingClientRect();
+      setCanvasSize({
+        width: Math.max(1, Math.round(rect.width)),
+        height: Math.max(1, Math.round(rect.height)),
+      });
+    };
+
+    updateSize();
+    const observer = new ResizeObserver(updateSize);
+    observer.observe(stage);
+
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    const image = new Image();
+    image.decoding = "async";
+    image.loading = "eager";
+    image.fetchPriority = "high";
+    image.onload = () => {
+      imageRef.current = image;
+      setLoadedImageSrc(currentImage);
+      setPan((current) => ({ ...current }));
+    };
+    image.onerror = () => {
+      if (image.src !== FALLBACK_IMAGE) {
+        image.src = FALLBACK_IMAGE;
+      }
+    };
+    image.src = currentImage;
+
+    return () => {
+      image.onload = null;
+      image.onerror = null;
+    };
+  }, [currentImage]);
+
+  const currentImageReady = loadedImageSrc === currentImage;
+
+  useEffect(() => {
+    if (images.length <= 1) return;
+
+    const preload = (src: string) => {
+      const image = new Image();
+      image.decoding = "async";
+      image.loading = "lazy";
+      image.fetchPriority = "low";
+      image.src = src;
+    };
+
+    const prefetchNeighbors = () => {
+      const neighbors = [
+        images[(selectedIndex + 1) % images.length],
+        images[(selectedIndex - 1 + images.length) % images.length],
+      ].filter((src, index, list) => Boolean(src) && list.indexOf(src) === index);
+
+      neighbors.forEach(preload);
+    };
+
+    const idle = window.requestIdleCallback
+      ? window.requestIdleCallback(prefetchNeighbors, { timeout: 1500 })
+      : window.setTimeout(prefetchNeighbors, 500);
+
+    return () => {
+      if (typeof idle === "number") {
+        window.clearTimeout(idle);
+      } else {
+        window.cancelIdleCallback?.(idle);
+      }
+    };
+  }, [images, selectedIndex]);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    const image = imageRef.current;
+    if (!canvas || !image || canvasSize.width <= 0 || canvasSize.height <= 0) {
+      return;
+    }
+
+    const pixelRatio = Math.min(window.devicePixelRatio || 1, 2);
+    canvas.width = Math.round(canvasSize.width * pixelRatio);
+    canvas.height = Math.round(canvasSize.height * pixelRatio);
+    canvas.style.width = `${canvasSize.width}px`;
+    canvas.style.height = `${canvasSize.height}px`;
+
+    const context = canvas.getContext("2d");
+    if (!context) return;
+
+    context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+    context.clearRect(0, 0, canvasSize.width, canvasSize.height);
+    drawCanvasGrid(context, canvasSize.width, canvasSize.height);
+
+    const containScale = Math.min(
+      canvasSize.width / image.naturalWidth,
+      canvasSize.height / image.naturalHeight
+    );
+    const drawWidth = image.naturalWidth * containScale * zoom;
+    const drawHeight = image.naturalHeight * containScale * zoom;
+    const drawX = (canvasSize.width - drawWidth) / 2 + pan.x;
+    const drawY = (canvasSize.height - drawHeight) / 2 + pan.y;
+
+    context.imageSmoothingEnabled = true;
+    context.imageSmoothingQuality = "high";
+    context.drawImage(image, drawX, drawY, drawWidth, drawHeight);
+  }, [canvasSize, pan, zoom]);
+
+  const updateZoom = useCallback((nextZoom: number) => {
+    setZoom(Math.min(5, Math.max(0.5, nextZoom)));
+  }, []);
+
+  useEffect(() => {
+    const stage = stageRef.current;
+    if (!stage) return;
+
+    const handleWheel = (event: globalThis.WheelEvent) => {
+      event.preventDefault();
+      const direction = event.deltaY > 0 ? -0.12 : 0.12;
+      setZoom((current) => Math.min(5, Math.max(0.5, current + direction)));
+    };
+
+    stage.addEventListener("wheel", handleWheel, { passive: false });
+
+    return () => {
+      stage.removeEventListener("wheel", handleWheel);
+    };
+  }, []);
+
+  useEffect(() => {
+    const handleGesture = (event: Event) => {
+      event.preventDefault();
+    };
+
+    document.addEventListener("gesturestart", handleGesture);
+    document.addEventListener("gesturechange", handleGesture);
+    document.addEventListener("gestureend", handleGesture);
+
+    return () => {
+      document.removeEventListener("gesturestart", handleGesture);
+      document.removeEventListener("gesturechange", handleGesture);
+      document.removeEventListener("gestureend", handleGesture);
+    };
+  }, []);
+
+  const handleCanvasPointerDown = (
+    event: ReactPointerEvent<HTMLDivElement>
+  ) => {
+    if (zoom <= 1) return;
+    event.currentTarget.setPointerCapture(event.pointerId);
+    dragRef.current = {
+      pointerId: event.pointerId,
+      x: event.clientX,
+      y: event.clientY,
+    };
+  };
+
+  const handleCanvasPointerMove = (
+    event: ReactPointerEvent<HTMLDivElement>
+  ) => {
+    const drag = dragRef.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+
+    const deltaX = event.clientX - drag.x;
+    const deltaY = event.clientY - drag.y;
+    dragRef.current = { ...drag, x: event.clientX, y: event.clientY };
+    setPan((current) => ({ x: current.x + deltaX, y: current.y + deltaY }));
+  };
+
+  const handleCanvasPointerEnd = (
+    event: ReactPointerEvent<HTMLDivElement>
+  ) => {
+    if (dragRef.current?.pointerId === event.pointerId) {
+      dragRef.current = null;
+    }
+  };
 
   const handleLike = async () => {
     if (hasLiked || liking) return;
@@ -305,27 +560,6 @@ export default function ProjectViewer({
     }
   };
 
-  const handleTouchStart = (event: TouchEvent<HTMLDivElement>) => {
-    const touch = event.touches[0];
-    touchStartRef.current = { x: touch.clientX, y: touch.clientY };
-  };
-
-  const handleTouchEnd = (event: TouchEvent<HTMLDivElement>) => {
-    const start = touchStartRef.current;
-    touchStartRef.current = null;
-
-    if (!start || !hasMultipleImages) return;
-
-    const touch = event.changedTouches[0];
-    const deltaX = touch.clientX - start.x;
-    const deltaY = touch.clientY - start.y;
-
-    if (Math.abs(deltaX) >= 55 && Math.abs(deltaX) > Math.abs(deltaY)) {
-      if (deltaX < 0) goNext();
-      else goPrevious();
-    }
-  };
-
   const handlePanelKeyDown = (event: ReactKeyboardEvent<HTMLElement>) => {
     if (event.key === "Enter" && event.target === event.currentTarget) {
       closeButtonRef.current?.focus();
@@ -372,17 +606,46 @@ export default function ProjectViewer({
         <div className="pgx-viewer__body">
           <section className="pgx-viewer__gallery" aria-label="รูปภาพโปรเจกต์">
             <div
+              ref={stageRef}
               className="pgx-viewer__stage"
-              onTouchStart={handleTouchStart}
-              onTouchEnd={handleTouchEnd}
+              onPointerDown={handleCanvasPointerDown}
+              onPointerMove={handleCanvasPointerMove}
+              onPointerUp={handleCanvasPointerEnd}
+              onPointerCancel={handleCanvasPointerEnd}
+              onDoubleClick={resetCanvasView}
             >
-              <img
-                key={`${selectedIndex}-${currentImage}`}
-                src={currentImage}
-                alt={`${project.title} รูปที่ ${selectedIndex + 1}`}
-                draggable={false}
-                onError={handleImageError}
+              <canvas
+                ref={canvasRef}
+                aria-label={`${project.title} รูปที่ ${selectedIndex + 1}`}
               />
+              {!currentImageReady && (
+                <div className="pgx-viewer__loading" aria-hidden="true">
+                  กำลังโหลดรูป...
+                </div>
+              )}
+              <div className="pgx-viewer__zoom-controls">
+                <button
+                  type="button"
+                  onClick={() => updateZoom(zoom - 0.25)}
+                  aria-label="ซูมออก"
+                >
+                  <ZoomOut size={15} aria-hidden="true" />
+                </button>
+                <button
+                  type="button"
+                  onClick={resetCanvasView}
+                  aria-label="รีเซ็ตมุมมอง"
+                >
+                  <Maximize2 size={15} aria-hidden="true" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => updateZoom(zoom + 0.25)}
+                  aria-label="ซูมเข้า"
+                >
+                  <ZoomIn size={15} aria-hidden="true" />
+                </button>
+              </div>
             </div>
 
             <div className="pgx-viewer__controls">
@@ -417,13 +680,18 @@ export default function ProjectViewer({
                     key={`${image}-${index}`}
                     type="button"
                     className={index === selectedIndex ? "is-active" : ""}
-                    onClick={() => setSelectedIndex(index)}
+                    onClick={() => {
+                      resetCanvasView();
+                      setSelectedIndex(index);
+                    }}
                     aria-label={`แสดงรูปที่ ${index + 1}`}
                     aria-current={index === selectedIndex ? "true" : undefined}
                   >
                     <img
                       src={image}
                       alt=""
+                      loading="lazy"
+                      decoding="async"
                       aria-hidden="true"
                       draggable={false}
                       onError={handleImageError}

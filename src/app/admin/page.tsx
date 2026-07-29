@@ -25,6 +25,7 @@ export type Project = {
   github_link: string | null;
   likes_count: number | null;
   created_at?: string | null;
+  deleted_at?: string | null;
 };
 
 export default async function AdminPage() {
@@ -37,8 +38,9 @@ export default async function AdminPage() {
   const { data, error } = await supabaseAdmin
     .from("projects")
     .select(
-      "id,title,description,image_url,demo_link,github_link,likes_count,created_at"
+      "id,title,description,image_url,demo_link,github_link,likes_count,created_at,deleted_at"
     )
+    .order("deleted_at", { ascending: true, nullsFirst: true })
     .order("created_at", { ascending: false });
 
   if (error) {

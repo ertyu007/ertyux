@@ -21,7 +21,10 @@ import {
   Loader2,
   LogOut,
   Plus,
+  ArrowUp,
+  RotateCcw,
   Trash2,
+  Square,
   X,
 } from "lucide-react";
 
@@ -32,6 +35,8 @@ import {
   discardProjectUploads,
   logoutAdmin,
   prepareProjectUploads,
+  purgeDeletedProject,
+  restoreProject,
   updateProject,
   type ProjectImageState,
   type UploadedImageProof,
@@ -57,6 +62,7 @@ const EMPTY_FORM: FormState = {
 };
 
 const subscribeToClient = () => () => {};
+const PROJECT_PURGE_DAYS = 30;
 
 function parseProjectImages(value: string | null | undefined): string[] {
   if (!value?.trim()) return [];
@@ -116,6 +122,8 @@ export default function AdminClient({
   const dialogRef = useRef<HTMLDivElement>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
   const uploadPromisesRef = useRef(new Map<string, Promise<UploadedImageProof>>());
+  const uploadQueueRef = useRef<Promise<void>>(Promise.resolve());
+  const cancelledUploadIdsRef = useRef(new Set<string>());
 
   const mounted = useSyncExternalStore(
     subscribeToClient,
@@ -131,6 +139,7 @@ export default function AdminClient({
   const [saveError, setSaveError] = useState("");
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [pageMessage, setPageMessage] = useState("");
+  const [purgeNow, setPurgeNow] = useState(0);
 
   useEffect(() => {
     if (!editorOpen) return;
@@ -166,28 +175,71 @@ export default function AdminClient({
     };
   }, [editorOpen, saving]);
 
+  useEffect(() => {
+    const updateClock = () => setPurgeNow(Date.now());
+    const timer = window.setTimeout(updateClock, 0);
+    const interval = window.setInterval(updateClock, 60 * 1000);
+
+    return () => {
+      window.clearTimeout(timer);
+      window.clearInterval(interval);
+    };
+  }, []);
+
   const editingProject = useMemo(
     () => projects.find((project) => project.id === editingId) ?? null,
     [editingId, projects]
   );
 
+  const activeProjects = useMemo(
+    () => projects.filter((project) => !project.deleted_at),
+    [projects]
+  );
+
+  const deletedProjects = useMemo(
+    () => projects.filter((project) => Boolean(project.deleted_at)),
+    [projects]
+  );
+
+  const pendingUploads = useMemo(
+    () =>
+      images.filter(
+        (item): item is ImageItem & { type: "new"; file: File } =>
+          item.type === "new" &&
+          item.file instanceof File &&
+          (!item.upload || item.status !== "done")
+      ),
+    [images]
+  );
+
+  const failedUploads = useMemo(
+    () =>
+      images.filter(
+        (item): item is ImageItem & { type: "new"; file: File } =>
+          item.type === "new" &&
+          item.file instanceof File &&
+          item.status === "error"
+      ),
+    [images]
+  );
+
   const totalImages = useMemo(
     () =>
-      projects.reduce(
+      activeProjects.reduce(
         (total, project) =>
           total + parseProjectImages(project.image_url).length,
         0
       ),
-    [projects]
+    [activeProjects]
   );
 
   const totalLikes = useMemo(
     () =>
-      projects.reduce(
+      activeProjects.reduce(
         (total, project) => total + Number(project.likes_count || 0),
         0
       ),
-    [projects]
+    [activeProjects]
   );
 
   const openCreateEditor = () => {
@@ -228,12 +280,38 @@ export default function AdminClient({
 
   const closeEditor = () => {
     if (saving) return;
+    for (const item of images) {
+      if (item.type === "new" && item.status !== "done") {
+        cancelledUploadIdsRef.current.add(item.id);
+      }
+    }
     discardDraftImages(images);
     setEditorOpen(false);
     setSaveError("");
   };
 
+  const cancelPendingUploads = () => {
+    if (saving || pendingUploads.length === 0) return;
+    for (const item of pendingUploads) {
+      cancelledUploadIdsRef.current.add(item.id);
+    }
+    discardDraftImages(images);
+    setImages((current) => current.filter((item) => item.type === "existing"));
+    setSaveError("");
+  };
+
   const handleImagesChange = (nextImages: ImageItem[]) => {
+    const nextNewItems = nextImages.filter(
+      (item): item is ImageItem & { type: "new"; file: File } =>
+        item.type === "new" &&
+        item.file instanceof File &&
+        !item.upload &&
+        item.status === "ready" &&
+        !images.some((current) => current.id === item.id)
+    );
+
+    startBackgroundUploads(nextNewItems);
+
     const nextIds = new Set(nextImages.map((item) => item.id));
     discardDraftImages(images.filter((item) => !nextIds.has(item.id)));
     setImages(nextImages);
@@ -268,63 +346,58 @@ export default function AdminClient({
       prepared.uploads.map((ticket) => [ticket.clientId, ticket])
     );
 
-    const results = await Promise.allSettled(
+    const results = await Promise.all(
       newItems.map(async (item) => {
-        const ticket = ticketsById.get(item.id);
-        if (!ticket) {
-          throw new Error(`Missing upload ticket for ${item.file.name}.`);
-        }
+        try {
+          const ticket = ticketsById.get(item.id);
+          if (!ticket) {
+            throw new Error(`Missing upload ticket for ${item.file.name}.`);
+          }
 
-        updateImageStatus(item.id, "uploading");
+          updateImageStatus(item.id, "uploading");
 
-        const { error } = await supabase.storage
+          const { error } = await supabase.storage
           .from("portfolio")
           .uploadToSignedUrl(ticket.path, ticket.token, item.file, {
             cacheControl: "31536000",
             contentType: item.file.type,
           });
 
-        if (error) {
-          updateImageStatus(item.id, "error");
-          throw new Error(`${item.file.name}: ${error.message}`);
-        }
+          if (error) {
+            throw new Error(`${item.file.name}: ${error.message}`);
+          }
 
-        const proof: UploadedImageProof = {
+          const proof: UploadedImageProof = {
           clientId: ticket.clientId,
           path: ticket.path,
           size: ticket.size,
           contentType: ticket.contentType,
-          signature: ticket.signature,
-        };
+            signature: ticket.signature,
+          };
 
-        setImages((current) =>
-          current.map((currentItem) =>
-            currentItem.id === item.id
-              ? { ...currentItem, status: "done", upload: proof }
-              : currentItem
-          )
-        );
-        return proof;
+          if (cancelledUploadIdsRef.current.delete(item.id)) {
+            void discardProjectUploads([proof]).catch(() => undefined);
+            return proof;
+          }
+
+          setImages((current) =>
+            current.map((currentItem) =>
+              currentItem.id === item.id
+                ? { ...currentItem, status: "done", upload: proof }
+                : currentItem
+            )
+          );
+          return proof;
+        } catch (error) {
+          updateImageStatus(item.id, "error");
+          throw error instanceof Error
+            ? error
+            : new Error(`${item.file.name}: อัปโหลดไม่สำเร็จ`);
+        }
       })
     );
 
-    const failed = results.find(
-      (result): result is PromiseRejectedResult =>
-        result.status === "rejected"
-    );
-
-    if (failed) {
-      throw failed.reason instanceof Error
-        ? failed.reason
-        : new Error("One or more images could not be uploaded.");
-    }
-
-    return results.map((result) => {
-      if (result.status !== "fulfilled") {
-        throw new Error("Unexpected upload result.");
-      }
-      return result.value;
-    });
+    return results;
   }, []);
 
   const startBackgroundUploads = useCallback(
@@ -336,11 +409,9 @@ export default function AdminClient({
       );
       if (batches.length === 0) return;
 
-      for (const item of batches) {
-        updateImageStatus(item.id, "uploading");
-      }
-
-      const batchPromise = uploadImageBatch(batches).catch((error) => {
+      const batchPromise = uploadQueueRef.current
+        .then(() => uploadImageBatch(batches))
+        .catch((error) => {
         setImages((current) =>
           current.map((currentItem) =>
             batches.some((item) => item.id === currentItem.id) &&
@@ -351,6 +422,11 @@ export default function AdminClient({
         );
         throw error;
       });
+
+      uploadQueueRef.current = batchPromise.then(
+        () => undefined,
+        () => undefined
+      );
 
       for (const item of batches) {
         const itemPromise = batchPromise.then((uploads) => {
@@ -387,33 +463,6 @@ export default function AdminClient({
     startBackgroundUploads(readyItems);
   }, [editorOpen, images, saving, startBackgroundUploads]);
 
-  const uploadNewImages = async (): Promise<UploadedImageProof[]> => {
-    const newItems = images.filter(
-      (item): item is ImageItem & { type: "new"; file: File } =>
-        item.type === "new" && item.file instanceof File
-    );
-
-    if (newItems.length === 0) return [];
-
-    const readyItems = newItems.filter(
-      (item) => !item.upload && !uploadPromisesRef.current.has(item.id)
-    );
-    startBackgroundUploads(readyItems);
-
-    const uploads = await Promise.all(
-      newItems.map(async (item) => {
-        if (item.upload) return item.upload;
-
-        const inFlight = uploadPromisesRef.current.get(item.id);
-        if (inFlight) return inFlight;
-
-        throw new Error(`${item.file.name}: image upload has not started.`);
-      })
-    );
-
-    return uploads;
-  };
-
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (saving) return;
@@ -428,20 +477,26 @@ export default function AdminClient({
       return;
     }
 
+    if (pendingUploads.length > 0) {
+      setSaveError("รออัปโหลดรูปให้เสร็จก่อนกดบันทึก");
+      return;
+    }
+
+    if (failedUploads.length > 0) {
+      setSaveError("มีรูปที่อัปโหลดไม่สำเร็จ กรุณาลบหรือเพิ่มใหม่");
+      return;
+    }
+
     setSaveError("");
     setSaving(true);
-    setImages((current) =>
-      current.map((item) =>
-        item.type === "new" && !item.upload
-          ? { ...item, status: "ready" }
-          : item
-      )
-    );
-
-    let uploadedProofs: UploadedImageProof[] = [];
 
     try {
-      uploadedProofs = await uploadNewImages();
+      const uploadedProofs = images
+        .filter(
+          (item): item is ImageItem & { type: "new"; file: File; upload: UploadedImageProof } =>
+            item.type === "new" && item.file instanceof File && Boolean(item.upload)
+        )
+        .map((item) => item.upload);
       const uploadsByClientId = new Map(
         uploadedProofs.map((upload) => [upload.clientId, upload])
       );
@@ -462,7 +517,7 @@ export default function AdminClient({
 
           const upload = uploadsByClientId.get(item.id);
           if (!upload) {
-            throw new Error("Uploaded image information is incomplete.");
+            throw new Error("บางรูปยังอัปโหลดไม่เสร็จ");
           }
 
           return { kind: "uploaded", upload };
@@ -489,15 +544,6 @@ export default function AdminClient({
       );
       router.refresh();
     } catch (error) {
-      if (uploadedProofs.length > 0) {
-        await discardProjectUploads(uploadedProofs).catch(() => undefined);
-      }
-
-      setImages((current) =>
-        current.map((item) =>
-          item.type === "new" ? { ...item, status: "error" } : item
-        )
-      );
       setSaveError(
         error instanceof Error
           ? error.message
@@ -511,7 +557,7 @@ export default function AdminClient({
   const handleDelete = async (project: Project) => {
     if (
       !window.confirm(
-        `ลบโปรเจกต์ “${project.title}” ใช่หรือไม่? การลบย้อนกลับไม่ได้`
+        `ย้ายโปรเจกต์ “${project.title}” ไปถังลบใช่หรือไม่? สามารถกู้คืนได้ภายใน ${PROJECT_PURGE_DAYS} วัน`
       )
     ) {
       return;
@@ -527,13 +573,91 @@ export default function AdminClient({
       }
 
       setProjects((current) =>
-        current.filter((item) => item.id !== project.id)
+        current.map((item) =>
+          item.id === project.id
+            ? { ...item, deleted_at: new Date().toISOString() }
+            : item
+        )
       );
-      setPageMessage(result.warning || "ลบโปรเจกต์แล้ว");
+      setPageMessage(result.warning || "ย้ายโปรเจกต์ไปถังลบแล้ว");
       router.refresh();
     } catch (error) {
       window.alert(
         error instanceof Error ? error.message : "เกิดข้อผิดพลาดระหว่างลบ"
+      );
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
+  const handleRestore = async (project: Project) => {
+    setDeletingId(project.id);
+    setPageMessage("");
+
+    try {
+      const result = await restoreProject(project.id);
+      if (!result.success) {
+        throw new Error(result.error || "Unable to restore this project.");
+      }
+
+      setProjects((current) =>
+        current.map((item) =>
+          item.id === project.id ? { ...item, deleted_at: null } : item
+        )
+      );
+      setPageMessage("กู้คืนโปรเจกต์แล้ว");
+      router.refresh();
+    } catch (error) {
+      window.alert(
+        error instanceof Error ? error.message : "เกิดข้อผิดพลาดระหว่างกู้คืน"
+      );
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
+  const canPurgeProject = (project: Project): boolean => {
+    if (!project.deleted_at) return false;
+
+    const deletedAt = new Date(project.deleted_at).getTime();
+    if (!Number.isFinite(deletedAt)) return false;
+
+    return purgeNow >= deletedAt + PROJECT_PURGE_DAYS * 24 * 60 * 60 * 1000;
+  };
+
+  const handlePurge = async (project: Project) => {
+    if (!canPurgeProject(project)) {
+      window.alert(`ลบถาวรได้หลังจากอยู่ในถังลบครบ ${PROJECT_PURGE_DAYS} วัน`);
+      return;
+    }
+
+    if (
+      !window.confirm(
+        `ลบโปรเจกต์ “${project.title}” ถาวรใช่หรือไม่? การลบนี้กู้คืนไม่ได้`
+      )
+    ) {
+      return;
+    }
+
+    setDeletingId(project.id);
+    setPageMessage("");
+
+    try {
+      const result = await purgeDeletedProject(project.id);
+      if (!result.success) {
+        throw new Error(result.error || "Unable to permanently delete this project.");
+      }
+
+      setProjects((current) =>
+        current.filter((item) => item.id !== project.id)
+      );
+      setPageMessage(result.warning || "ลบโปรเจกต์ถาวรแล้ว");
+      router.refresh();
+    } catch (error) {
+      window.alert(
+        error instanceof Error
+          ? error.message
+          : "เกิดข้อผิดพลาดระหว่างลบถาวร"
       );
     } finally {
       setDeletingId(null);
@@ -596,7 +720,7 @@ export default function AdminClient({
                       items={images}
                       onChange={handleImagesChange}
                       disabled={saving}
-                      busy={saving}
+                      busy={false}
                       maxFiles={5}
                     />
                   </section>
@@ -675,9 +799,7 @@ export default function AdminClient({
                 ) : null}
 
                 <footer className="admin-modal__footer">
-                  <span>
-                    {images.length}/5 รูป • รูปแรกเป็นภาพปก
-                  </span>
+                  <span>{images.length}/5 รูป • รูปแรกเป็นภาพปก</span>
 
                   <div>
                     <button
@@ -689,19 +811,37 @@ export default function AdminClient({
                       ยกเลิก
                     </button>
                     <button
-                      type="submit"
+                      type={pendingUploads.length > 0 ? "button" : "submit"}
                       className="admin-button admin-button--primary"
-                      disabled={saving}
+                      disabled={saving || failedUploads.length > 0}
+                      onClick={pendingUploads.length > 0 ? cancelPendingUploads : undefined}
+                      title={
+                        pendingUploads.length > 0
+                          ? "ยกเลิกการอัปโหลด"
+                          : failedUploads.length > 0
+                          ? "แก้รูปที่ผิดพลาดก่อน"
+                          : editingId
+                          ? "บันทึกการแก้ไข"
+                          : "เพิ่มโปรเจกต์"
+                      }
+                      aria-label={
+                        pendingUploads.length > 0
+                          ? "ยกเลิกการอัปโหลด"
+                          : failedUploads.length > 0
+                          ? "แก้รูปที่ผิดพลาดก่อน"
+                          : editingId
+                          ? "บันทึกการแก้ไข"
+                          : "เพิ่มโปรเจกต์"
+                      }
                     >
                       {saving ? (
-                        <>
-                          <Loader2 className="admin-spin" size={17} />
-                          กำลังบันทึก...
-                        </>
-                      ) : editingId ? (
-                        "บันทึกการแก้ไข"
+                        <Loader2 className="admin-spin" size={17} />
+                      ) : pendingUploads.length > 0 ? (
+                        <Square size={17} />
+                      ) : failedUploads.length > 0 ? (
+                        <Loader2 className="admin-spin" size={17} />
                       ) : (
-                        "เพิ่มโปรเจกต์"
+                        <ArrowUp size={17} />
                       )}
                     </button>
                   </div>
@@ -767,7 +907,7 @@ export default function AdminClient({
         <section className="admin-stats" aria-label="สรุปข้อมูล">
           <article>
             <span>โปรเจกต์</span>
-            <strong>{projects.length}</strong>
+            <strong>{activeProjects.length}</strong>
           </article>
           <article>
             <span>รูปทั้งหมด</span>
@@ -779,7 +919,7 @@ export default function AdminClient({
           </article>
         </section>
 
-        {projects.length === 0 ? (
+        {activeProjects.length === 0 ? (
           <section className="admin-empty">
             <Images size={36} />
             <h2>ยังไม่มีโปรเจกต์</h2>
@@ -794,7 +934,7 @@ export default function AdminClient({
           </section>
         ) : (
           <section className="admin-project-grid" aria-label="รายการโปรเจกต์">
-            {projects.map((project) => {
+            {activeProjects.map((project) => {
               const projectImages = parseProjectImages(project.image_url);
               const cover = projectImages[0];
               const deleting = deletingId === project.id;
@@ -880,6 +1020,99 @@ export default function AdminClient({
             })}
           </section>
         )}
+
+        {deletedProjects.length > 0 ? (
+          <section className="admin-trash" aria-label="ถังลบโปรเจกต์">
+            <div className="admin-trash__header">
+              <div>
+                <span>Recycle Bin</span>
+                <h2>โปรเจกต์ที่ลบแล้ว</h2>
+              </div>
+              <p>กู้คืนได้ทันที ลบถาวรได้หลังอยู่ในถังลบครบ {PROJECT_PURGE_DAYS} วัน</p>
+            </div>
+
+            <div className="admin-project-grid">
+              {deletedProjects.map((project) => {
+                const projectImages = parseProjectImages(project.image_url);
+                const cover = projectImages[0];
+                const deleting = deletingId === project.id;
+                const purgeReady = canPurgeProject(project);
+
+                return (
+                  <article
+                    className="admin-project-card admin-project-card--deleted"
+                    key={project.id}
+                  >
+                    <div className="admin-project-card__image">
+                      {cover ? (
+                        <img src={cover} alt={`ภาพปก ${project.title}`} />
+                      ) : (
+                        <div className="admin-project-card__placeholder">
+                          <Images size={28} />
+                        </div>
+                      )}
+                      <span>
+                        <Trash2 size={13} /> ถูกลบ
+                      </span>
+                    </div>
+
+                    <div className="admin-project-card__body">
+                      <div className="admin-project-card__title-row">
+                        <h2>{project.title}</h2>
+                      </div>
+
+                      <p>{project.description}</p>
+
+                      <div className="admin-project-card__meta">
+                        <span>
+                          <Images size={14} /> {projectImages.length} รูป
+                        </span>
+                        <span>
+                          {project.deleted_at
+                            ? new Date(project.deleted_at).toLocaleDateString("th-TH")
+                            : "ไม่ทราบวันลบ"}
+                        </span>
+                      </div>
+
+                      <div className="admin-project-card__actions">
+                        <button
+                          type="button"
+                          onClick={() => handleRestore(project)}
+                          disabled={deleting}
+                        >
+                          {deleting ? (
+                            <Loader2 className="admin-spin" size={15} />
+                          ) : (
+                            <RotateCcw size={15} />
+                          )}
+                          กู้คืน
+                        </button>
+                        <button
+                          type="button"
+                          className="admin-project-card__delete"
+                          onClick={() => handlePurge(project)}
+                          disabled={deleting || !purgeReady}
+                          title={
+                            purgeReady
+                              ? "ลบถาวร"
+                              : `ลบถาวรได้หลังครบ ${PROJECT_PURGE_DAYS} วัน`
+                          }
+                        >
+                          {deleting ? (
+                            <Loader2 className="admin-spin" size={15} />
+                          ) : (
+                            <Trash2 size={15} />
+                          )}
+                          ลบถาวร
+                        </button>
+                      </div>
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          </section>
+        ) : null}
       </div>
 
       {editor}
@@ -1201,6 +1434,54 @@ export default function AdminClient({
         .admin-project-card__actions button:disabled {
           cursor: not-allowed;
           opacity: 0.55;
+        }
+
+        .admin-trash {
+          margin-top: 30px;
+          padding-top: 24px;
+          border-top: 1px solid var(--admin-border);
+        }
+
+        .admin-trash__header {
+          display: flex;
+          align-items: flex-end;
+          justify-content: space-between;
+          gap: 18px;
+          margin-bottom: 16px;
+        }
+
+        .admin-trash__header span {
+          color: var(--admin-muted);
+          font-size: 12px;
+          font-weight: 800;
+          letter-spacing: 0.08em;
+          text-transform: uppercase;
+        }
+
+        .admin-trash__header h2,
+        .admin-trash__header p {
+          margin: 0;
+        }
+
+        .admin-trash__header h2 {
+          font-size: 22px;
+        }
+
+        .admin-trash__header p {
+          max-width: 440px;
+          color: var(--admin-muted);
+          font-size: 13px;
+          line-height: 1.5;
+          text-align: right;
+        }
+
+        .admin-project-card--deleted {
+          background: #fbfcfd;
+          opacity: 0.9;
+        }
+
+        .admin-project-card--deleted .admin-project-card__image img {
+          filter: grayscale(0.75);
         }
 
         .admin-empty {

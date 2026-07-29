@@ -1,0 +1,4 @@
+interface:
+  display_name: "Deep Project Audit"
+  short_description: "ตรวจเว็บและโค้ดแบบละเอียดก่อนส่งงาน"
+  default_prompt: "ใช้ $deep-project-audit ตรวจโปรเจกต์นี้แบบละเอียดมาก ครอบคลุม UI, responsive, accessibility, animation, performance, code quality, security และ build"

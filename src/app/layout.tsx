@@ -6,6 +6,10 @@ import { ThemeProvider } from "@/components/ThemeProvider";
 
 import GlowProvider from "@/components/GlowProvider";
 
+const siteUrl =
+  process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") ||
+  "http://localhost:3000";
+
 /* ── Viewport Configuration ── */
 export const viewport: Viewport = {
   width: "device-width",
@@ -16,32 +20,32 @@ export const viewport: Viewport = {
 
 /* ── SEO & Open Graph Metadata ── */
 export const metadata: Metadata = {
-  metadataBase: new URL("https://myportfolio.dev"),
+  metadataBase: new URL(siteUrl),
   title: {
-    default: "3D Portfolio | Senior Developer",
-    template: "%s | Portfolio",
+    default: "Thanaphat Karajhak (MK) | Portfolio",
+    template: "%s | Thanaphat Karajhak",
   },
-  description: "Futuristic 3D animated portfolio showcasing immersive web projects and creative engineering.",
+  description: "ผลงานและบริการของ นายธนภัทร การะจักษ์ (เอ็มเค) นักเรียน นักพัฒนาเว็บไซต์ ที่ปรึกษาด้านคอมพิวเตอร์ และนักตัดต่อวิดีโอ",
   keywords: [
     "portfolio", "web developer", "3D portfolio", "react", "next.js",
     "three.js", "full-stack developer", "frontend", "creative developer",
     "UI/UX", "framer motion", "webgl",
   ],
-  authors: [{ name: "Portfolio Owner" }],
-  creator: "Portfolio Owner",
+  authors: [{ name: "Thanaphat Karajhak" }],
+  creator: "Thanaphat Karajhak",
   openGraph: {
-    title: "3D Portfolio | Senior Developer",
-    description: "Futuristic 3D animated portfolio showcasing immersive web projects and creative engineering.",
-    url: "https://myportfolio.dev",
-    siteName: "Portfolio",
+    title: "Thanaphat Karajhak (MK) | Portfolio",
+    description: "Portfolio ของ นายธนภัทร การะจักษ์ (เอ็มเค)",
+    url: siteUrl,
+    siteName: "Thanaphat Karajhak Portfolio",
     images: [{ url: "/og-image.jpg", width: 1200, height: 630, alt: "3D Portfolio Preview" }],
     locale: "en_US",
     type: "website",
   },
   twitter: {
     card: "summary_large_image",
-    title: "3D Portfolio | Senior Developer",
-    description: "Futuristic 3D animated portfolio showcasing immersive web projects.",
+    title: "Thanaphat Karajhak (MK) | Portfolio",
+    description: "Portfolio ของ นายธนภัทร การะจักษ์ (เอ็มเค)",
   },
   robots: {
     index: true,
@@ -60,10 +64,15 @@ export const metadata: Metadata = {
 const jsonLd = {
   "@context": "https://schema.org",
   "@type": "Person",
-  name: "Portfolio Owner",
-  url: "https://myportfolio.dev",
-  jobTitle: "Senior Developer",
-  sameAs: [],
+  name: "Thanaphat Karajhak",
+  url: siteUrl,
+  alternateName: ["นายธนภัทร การะจักษ์", "เอ็มเค", "MK"],
+  jobTitle: "Student and Web Developer",
+  sameAs: [
+    "https://github.com/ertyu007",
+    "https://www.tiktok.com/@ertyu0075",
+    "https://youtube.com/@amazingwuji",
+  ],
   knowsAbout: ["Web Development", "React", "Next.js", "Three.js", "UI/UX Design"],
 };
 

@@ -18,7 +18,12 @@ const subscribeToClient = () => () => {};
 /** Scroll smoothly to a section by id */
 function scrollToSection(id: string) {
   if (id === "home") {
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    // Jump directly across the pinned GSAP section. Smooth-scrolling from the
+    // bottom can leave ScrollTrigger between states while it crosses the pin.
+    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+    window.requestAnimationFrame(() => {
+      window.dispatchEvent(new Event("scroll"));
+    });
     return;
   }
   const el = document.getElementById(id);
@@ -46,6 +51,9 @@ export default function Navigation() {
   useMotionValueEvent(scrollY, "change", (latest) => {
     if (isAdminPage) return;
     setScrolled(latest > 50);
+    if (latest < window.innerHeight * 0.72) {
+      setActiveSection("home");
+    }
   });
 
   /* ── Active-section observer ── */
@@ -57,6 +65,12 @@ export default function Navigation() {
 
     const observer = new IntersectionObserver(
       (entries) => {
+        // Keep Home active while the pinned hero still fills the viewport.
+        if (window.scrollY < window.innerHeight * 0.72) {
+          setActiveSection("home");
+          return;
+        }
+
         // Pick the entry closest to the top of viewport that is intersecting
         const visible = entries.filter((e) => e.isIntersecting);
         if (visible.length === 0) return;
@@ -65,7 +79,7 @@ export default function Navigation() {
         );
         setActiveSection(top.target.id);
       },
-      { rootMargin: "-20% 0px -60% 0px", threshold: 0 }
+      { rootMargin: "-14% 0px -58% 0px", threshold: 0 }
     );
 
     sections.forEach((s) => observer.observe(s));
@@ -75,11 +89,16 @@ export default function Navigation() {
   /* ── Close mobile menu on outside click / Escape ── */
   useEffect(() => {
     if (!mobileMenuOpen) return;
+    const previousOverflow = document.body.style.overflow;
     const handleKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") setMobileMenuOpen(false);
     };
+    document.body.style.overflow = "hidden";
     document.addEventListener("keydown", handleKey);
-    return () => document.removeEventListener("keydown", handleKey);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener("keydown", handleKey);
+    };
   }, [mobileMenuOpen]);
 
   /* ── Handlers ── */
@@ -87,6 +106,7 @@ export default function Navigation() {
     (e: React.MouseEvent, id: string) => {
       e.preventDefault();
       setMobileMenuOpen(false);
+      setActiveSection(id);
       scrollToSection(id);
       // Update URL hash without page reload
       history.replaceState(null, "", id === "home" ? "/" : `#${id}`);
@@ -112,19 +132,45 @@ export default function Navigation() {
         transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
         style={{
           position: "fixed",
-          top: 0,
+          top: "0.75rem",
           left: 0,
           right: 0,
           zIndex: 100,
-          padding: "0.75rem 0",
-          background: scrolled ? "var(--glass-bg)" : "transparent",
-          backdropFilter: scrolled ? "blur(20px) saturate(1.8)" : "none",
-          WebkitBackdropFilter: scrolled ? "blur(20px) saturate(1.8)" : "none",
-          borderBottom: scrolled ? "1px solid var(--glass-border)" : "1px solid transparent",
-          transition: "background 0.4s ease, backdrop-filter 0.4s ease, border 0.4s ease",
+          padding: "0 0.75rem",
+          pointerEvents: "none",
         }}
       >
-        <div className="container" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <div
+          className="container site-nav__bar"
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            gap: "1rem",
+            paddingTop: 0,
+            paddingBottom: 0,
+            minHeight: 68,
+            borderRadius: "24px",
+            background: isDark
+              ? scrolled
+                ? "rgba(15, 18, 26, 0.9)"
+                : "rgba(20, 23, 31, 0.86)"
+              : scrolled
+                ? "rgba(255, 255, 255, 0.9)"
+                : "rgba(255, 255, 255, 0.86)",
+            backdropFilter: "blur(20px) saturate(1.3)",
+            WebkitBackdropFilter: "blur(20px) saturate(1.3)",
+            border: isDark
+              ? "1px solid rgba(255, 255, 255, 0.12)"
+              : "1px solid rgba(255, 255, 255, 0.72)",
+            boxShadow: scrolled
+              ? "0 16px 40px rgba(15, 23, 42, 0.12)"
+              : "0 12px 30px rgba(15, 23, 42, 0.08)",
+            pointerEvents: "auto",
+            overflow: "hidden",
+            transition: "background 0.35s ease, box-shadow 0.35s ease, border-color 0.35s ease",
+          }}
+        >
 
           {/* Logo */}
           <motion.a
@@ -132,6 +178,7 @@ export default function Navigation() {
             onClick={(e) => handleNavClick(e, "home")}
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
+            className="text-gradient site-nav__logo"
             style={{
               fontWeight: 900,
               fontSize: "1.5rem",
@@ -139,7 +186,6 @@ export default function Navigation() {
               position: "relative",
               textDecoration: "none",
             }}
-            className="text-gradient"
           >
             PORTFOLIO.
           </motion.a>
@@ -150,10 +196,16 @@ export default function Navigation() {
               style={{
                 display: "flex",
                 gap: "0.25rem",
-                background: scrolled ? "var(--bg-2)" : "rgba(255,255,255,0.05)",
+                background: isDark
+                  ? "rgba(255, 255, 255, 0.045)"
+                  : "rgba(15, 23, 42, 0.035)",
                 borderRadius: "var(--radius-full)",
                 padding: "0.3rem",
-                border: `1px solid ${scrolled ? "var(--glass-border)" : "rgba(255,255,255,0.08)"}`,
+                border: `1px solid ${
+                  isDark
+                    ? "rgba(255, 255, 255, 0.09)"
+                    : "rgba(15, 23, 42, 0.08)"
+                }`,
                 transition: "all 0.4s ease",
               }}
             >
@@ -170,10 +222,24 @@ export default function Navigation() {
                       borderRadius: "var(--radius-full)",
                       fontSize: "0.85rem",
                       fontWeight: 600,
-                      color: isActive ? "var(--cyan)" : "var(--fg-dim)",
+                      color: isActive
+                        ? "var(--cyan)"
+                        : isDark
+                          ? "#c6cfdd"
+                          : "#536078",
                       transition: "color 0.3s ease",
                       zIndex: 1,
                       textDecoration: "none",
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.color = "var(--cyan)";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.color = isActive
+                        ? "var(--cyan)"
+                        : isDark
+                          ? "#c6cfdd"
+                          : "#536078";
                     }}
                   >
                     {isActive && (
@@ -205,7 +271,7 @@ export default function Navigation() {
                 whileTap={{ scale: 0.9 }}
                 style={{
                   marginLeft: "1rem",
-                  background: "var(--bg-2)",
+                  background: "var(--bg-elevated)",
                   border: "1px solid var(--glass-border)",
                   borderRadius: "50%",
                   width: 40,
@@ -242,11 +308,17 @@ export default function Navigation() {
                 onClick={toggleTheme}
                 aria-label="Toggle theme"
                 whileTap={{ scale: 0.9 }}
+                whileHover={{ scale: 1.05 }}
                 style={{
-                  background: "transparent",
-                  border: "none",
+                  background: "var(--bg-elevated)",
+                  border: "1px solid var(--glass-border)",
+                  borderRadius: "50%",
+                  width: 40,
+                  height: 40,
                   color: "var(--cyan)",
                   display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
                   cursor: "pointer",
                 }}
               >
@@ -257,7 +329,18 @@ export default function Navigation() {
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
               aria-label="Toggle navigation menu"
               aria-expanded={mobileMenuOpen}
-              style={{ background: "none", border: "none", color: "var(--fg)", cursor: "pointer", display: "flex" }}
+              style={{
+                background: "var(--bg-elevated)",
+                border: "1px solid var(--glass-border)",
+                borderRadius: "50%",
+                width: 40,
+                height: 40,
+                color: "var(--fg)",
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
             >
               <AnimatePresence mode="wait" initial={false}>
                 <motion.div
@@ -280,48 +363,77 @@ export default function Navigation() {
       <AnimatePresence>
         {mobileMenuOpen && (
           <motion.div
-            initial={{ opacity: 0, clipPath: "inset(0 0 100% 0)" }}
-            animate={{ opacity: 1, clipPath: "inset(0 0 0% 0)" }}
-            exit={{ opacity: 0, clipPath: "inset(0 0 100% 0)" }}
-            transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.16 }}
             style={{
               position: "fixed",
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
+              inset: 0,
+              width: "100dvw",
+              maxWidth: "100%",
               background: "var(--bg)",
-              zIndex: 99,
+              zIndex: 220,
               display: "flex",
               flexDirection: "column",
               alignItems: "center",
               justifyContent: "center",
-              gap: "0.5rem",
+              gap: "0.35rem",
+              padding: "5rem 1.25rem 2rem",
+              overflow: "hidden",
             }}
           >
-            {navLinks.map((link, i) => (
+            <motion.button
+              type="button"
+              aria-label="Close navigation menu"
+              onClick={() => setMobileMenuOpen(false)}
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              style={{
+                position: "absolute",
+                top: "max(1rem, env(safe-area-inset-top))",
+                right: "1rem",
+                width: 44,
+                height: 44,
+                display: "grid",
+                placeItems: "center",
+                border: "1px solid var(--glass-border)",
+                borderRadius: "50%",
+                background: "var(--bg-2)",
+                color: "var(--fg)",
+              }}
+            >
+              <X size={22} />
+            </motion.button>
+
+              {navLinks.map((link, i) => (
               <motion.a
                 key={link.name}
                 href={`#${link.id}`}
                 onClick={(e) => handleNavClick(e, link.id)}
-                initial={{ opacity: 0, x: -30 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: i * 0.08, duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: i * 0.025, duration: 0.12 }}
                 style={{
-                  fontSize: "clamp(1.8rem, 5vw, 2.5rem)",
+                  width: "min(100%, 340px)",
+                  display: "flex",
+                  alignItems: "center",
+                  fontSize: "clamp(1.65rem, 8vw, 2.35rem)",
                   fontFamily: "'Space Grotesk', sans-serif",
                   fontWeight: 700,
-                  padding: "0.75rem 2rem",
+                  padding: "0.8rem 1rem 0.8rem 3.2rem",
+                  borderRadius: "14px",
+                  background: activeSection === link.id ? "var(--cyan-subtle)" : "transparent",
                   color: activeSection === link.id ? "var(--cyan)" : "var(--fg)",
                   transition: "color 0.3s ease",
                   position: "relative",
                   textDecoration: "none",
                 }}
-                whileHover={{ x: 10, color: "var(--cyan)" }}
+                whileTap={{ opacity: 0.7 }}
               >
                 <span style={{
                   position: "absolute",
-                  left: "0",
+                  left: "1rem",
                   top: "50%",
                   transform: "translateY(-50%)",
                   fontSize: "0.7rem",
