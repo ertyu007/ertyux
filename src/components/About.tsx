@@ -182,8 +182,8 @@ export default function About() {
           whileInView="visible"
           viewport={{ once: true, margin: "-80px" }}
           variants={fadeUp}
-          className="about-intro"
-          style={{ marginBottom: "2rem" }}
+          className="about-intro section-heading"
+          style={{ marginBottom: "3rem" }}
         >
           <Image
             src="/profile.jpg"
@@ -227,8 +227,8 @@ export default function About() {
           style={{
             display: "grid",
             gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))",
-            gap: "1.25rem",
-            marginBottom: "4rem",
+            gap: "1.5rem",
+            marginBottom: "3rem",
           }}
         >
           {cards.map((card) => (
@@ -247,7 +247,7 @@ export default function About() {
             display: "grid",
             gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
             gap: "1rem",
-            marginBottom: "4rem",
+            marginBottom: "3rem",
           }}
         >
           {stats.map((stat) => (

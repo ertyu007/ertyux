@@ -206,7 +206,7 @@ export default function Projects() {
     <section id="projects" className="section pgx-projects">
       <div className="container">
         <motion.header
-          className="pgx-projects__header"
+            className="pgx-projects__header section-heading"
           initial={{ opacity: 0, y: 20, filter: "blur(8px)" }}
           whileInView={{ opacity: 1, y: 0, filter: "blur(0px)" }}
           viewport={{ once: true, margin: "-80px" }}

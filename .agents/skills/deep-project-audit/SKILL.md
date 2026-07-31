@@ -17,6 +17,31 @@ Audit the current project as if it will be released today. Inspect before changi
 6. If asked only to review, do not implement fixes. If asked to fix, patch the smallest safe scope and rerun affected checks.
 7. Treat security, destructive admin actions, uploads, authentication, and public visibility as high-risk.
 
+## Task framing and implementation discipline
+
+Before changing code:
+
+1. **Define the target**
+   - Restate the requested outcome in concrete, observable terms.
+   - Record constraints, affected routes, viewports, states, and acceptance criteria.
+   - Narrow broad requests into a practical scope without inventing unrelated work.
+
+2. **Collect technical context**
+   - Confirm the framework, language, versions, repository conventions, and relevant dependencies.
+   - Read the current implementation and data flow before proposing changes.
+   - Prefer established project patterns over introducing new libraries or architecture.
+
+3. **Work in small verified increments**
+   - Split large work into independently checkable changes.
+   - Inspect first, patch the smallest coherent unit, then run targeted checks.
+   - Fix and verify one failure class at a time so regressions remain attributable.
+
+4. **Act as the code owner**
+   - Never treat generated code as correct without inspection.
+   - Check logic, security, accessibility, responsive behavior, error paths, and cleanup.
+   - Run repository-supported lint, typecheck, build, and tests before reporting success.
+   - Explain remaining warnings, untested states, assumptions, and regression risks.
+
 ## Audit workflow
 
 ### 1. Establish scope and baseline

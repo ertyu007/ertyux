@@ -291,8 +291,8 @@ export default function Navigation() {
                   background: "var(--bg-elevated)",
                   border: "1px solid var(--glass-border)",
                   borderRadius: "50%",
-                  width: 40,
-                  height: 40,
+                  width: 44,
+                  height: 44,
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
@@ -357,8 +357,8 @@ export default function Navigation() {
                         : "var(--glass-border)"
                   }`,
                   borderRadius: "50%",
-                  width: 40,
-                  height: 40,
+                  width: 44,
+                  height: 44,
                   color:
                     mobile3DStatus === "error"
                       ? "var(--pink)"
@@ -402,8 +402,8 @@ export default function Navigation() {
                   background: "var(--bg-elevated)",
                   border: "1px solid var(--glass-border)",
                   borderRadius: "50%",
-                  width: 40,
-                  height: 40,
+                  width: 44,
+                  height: 44,
                   color: "var(--cyan)",
                   display: "flex",
                   alignItems: "center",
@@ -422,8 +422,8 @@ export default function Navigation() {
                 background: "var(--bg-elevated)",
                 border: "1px solid var(--glass-border)",
                 borderRadius: "50%",
-                width: 40,
-                height: 40,
+                width: 44,
+                height: 44,
                 color: "var(--fg)",
                 cursor: "pointer",
                 display: "flex",

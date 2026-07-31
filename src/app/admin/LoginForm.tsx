@@ -126,6 +126,7 @@ export default function LoginForm() {
           left: 24px;
           display: inline-flex;
           align-items: center;
+          min-height: 44px;
           gap: 7px;
           color: #667085;
           font-size: 14px;
@@ -135,7 +136,7 @@ export default function LoginForm() {
 
         .admin-login-card {
           width: min(420px, 100%);
-          padding: 32px;
+          padding: clamp(24px, 5vw, 32px);
           border: 1px solid #d9dee7;
           border-radius: 12px;
           background: #ffffff;
@@ -203,8 +204,8 @@ export default function LoginForm() {
         }
 
         .admin-login-card__input button {
-          width: 40px;
-          height: 40px;
+          width: 44px;
+          height: 44px;
           display: grid;
           place-items: center;
           border: 0;

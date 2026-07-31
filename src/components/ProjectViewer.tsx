@@ -26,6 +26,8 @@ import {
   type SyntheticEvent,
 } from "react";
 import { createPortal } from "react-dom";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 export type ProjectViewerProject = {
   id: string;
@@ -300,6 +302,14 @@ export default function ProjectViewer({
   }, []);
 
   useEffect(() => {
+    imageRef.current = null;
+
+    const canvas = canvasRef.current;
+    const context = canvas?.getContext("2d");
+    if (canvas && context) {
+      context.clearRect(0, 0, canvas.width, canvas.height);
+    }
+
     const image = new Image();
     image.decoding = "async";
     image.loading = "eager";
@@ -660,30 +670,30 @@ export default function ProjectViewer({
               </div>
             </div>
 
-            <div className="pgx-viewer__controls">
-              <button
-                type="button"
-                onClick={goPrevious}
-                disabled={!hasMultipleImages}
-                aria-label="รูปก่อนหน้า"
-              >
-                <ChevronLeft size={20} aria-hidden="true" />
-              </button>
+            {hasMultipleImages && (
+              <div className="pgx-viewer__controls">
+                <button
+                  type="button"
+                  onClick={goPrevious}
+                  aria-label="รูปก่อนหน้า"
+                >
+                  <ChevronLeft size={20} aria-hidden="true" />
+                </button>
 
-              <span>
-                <Images size={14} aria-hidden="true" />
-                {images.length > 0 ? selectedIndex + 1 : 0} / {images.length}
-              </span>
+                <span>
+                  <Images size={14} aria-hidden="true" />
+                  {selectedIndex + 1} / {images.length}
+                </span>
 
-              <button
-                type="button"
-                onClick={goNext}
-                disabled={!hasMultipleImages}
-                aria-label="รูปถัดไป"
-              >
-                <ChevronRight size={20} aria-hidden="true" />
-              </button>
-            </div>
+                <button
+                  type="button"
+                  onClick={goNext}
+                  aria-label="รูปถัดไป"
+                >
+                  <ChevronRight size={20} aria-hidden="true" />
+                </button>
+              </div>
+            )}
 
             {hasMultipleImages && (
               <div className="pgx-viewer__thumbs" aria-label="เลือกรูปภาพ">
@@ -725,7 +735,20 @@ export default function ProjectViewer({
               )}
 
               <h3>รายละเอียด</h3>
-              <p>{project.description}</p>
+              <div className="pgx-viewer__markdown">
+                <ReactMarkdown
+                  remarkPlugins={[remarkGfm]}
+                  components={{
+                    a: ({ children, ...props }) => (
+                      <a {...props} target="_blank" rel="noopener noreferrer">
+                        {children}
+                      </a>
+                    ),
+                  }}
+                >
+                  {project.description}
+                </ReactMarkdown>
+              </div>
 
               <div className="pgx-viewer__actions">
                 <button

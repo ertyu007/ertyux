@@ -31,8 +31,8 @@ export default function ProjectCard({
   );
 
   const cover = images[0] || FALLBACK_IMAGE;
-  const [imageFailed, setImageFailed] = useState(false);
-  const imageSrc = imageFailed ? FALLBACK_IMAGE : cover;
+  const [failedImageSrc, setFailedImageSrc] = useState<string | null>(null);
+  const imageSrc = failedImageSrc === cover ? FALLBACK_IMAGE : cover;
 
   return (
     <motion.article
@@ -59,7 +59,7 @@ export default function ProjectCard({
             loading="lazy"
             decoding="async"
             unoptimized={imageSrc === FALLBACK_IMAGE}
-            onError={() => setImageFailed(true)}
+            onError={() => setFailedImageSrc(cover)}
           />
 
           <span className="pgx-card__count">

@@ -86,12 +86,10 @@ export default function ProjectImageUploader({
   const inputRef = useRef<HTMLInputElement>(null);
   const dragDepthRef = useRef(0);
   const objectUrlsRef = useRef(new Set<string>());
-  const progressTimersRef = useRef(new Map<string, number>());
 
   const [dragging, setDragging] = useState(false);
   const [message, setMessage] = useState("");
   const [previewId, setPreviewId] = useState<string | null>(null);
-  const [progressById, setProgressById] = useState<Record<string, number>>({});
   const [loadedImages, setLoadedImages] = useState<Record<string, boolean>>({});
   const [draggedItemId, setDraggedItemId] = useState<string | null>(null);
 
@@ -133,60 +131,10 @@ export default function ProjectImageUploader({
   const uploadingCount = newItems.filter(
     (item) => item.status === "uploading"
   ).length;
-  const pendingUploadCount = newItems.filter(
-    (item) => item.status !== "done"
-  ).length;
   const progressPercent =
     newItems.length > 0
       ? Math.round((completedCount / newItems.length) * 100)
       : 100;
-
-  useEffect(() => {
-    const timers = progressTimersRef.current;
-    const uploadingIds = new Set(
-      items
-        .filter((item) => item.status === "uploading")
-        .map((item) => item.id)
-    );
-
-    for (const [id, timer] of timers) {
-      if (!uploadingIds.has(id)) {
-        window.clearInterval(timer);
-        timers.delete(id);
-        setProgressById((current) => {
-          const next = { ...current };
-          delete next[id];
-          return next;
-        });
-      }
-    }
-
-    for (const item of items) {
-      if (item.status !== "uploading" || timers.has(item.id)) continue;
-
-      setProgressById((current) => ({
-        ...current,
-        [item.id]: current[item.id] ?? 12,
-      }));
-
-      const timer = window.setInterval(() => {
-        setProgressById((current) => {
-          const currentValue = current[item.id] ?? 12;
-          if (currentValue >= 92) return current;
-          return { ...current, [item.id]: Math.min(92, currentValue + 8) };
-        });
-      }, 180);
-
-      timers.set(item.id, timer);
-    }
-
-    return () => {
-      for (const timer of timers.values()) {
-        window.clearInterval(timer);
-      }
-      timers.clear();
-    };
-  }, [items]);
 
   useEffect(() => {
     const activeUrls = new Set(
@@ -401,8 +349,8 @@ export default function ProjectImageUploader({
 
       <div
         className={`project-uploader__panel${
-          dragging ? " project-uploader__panel--dragging" : ""
-        }`}
+          items.length === 0 ? " project-uploader__panel--empty" : ""
+        }${dragging ? " project-uploader__panel--dragging" : ""}`}
         onDragEnter={handleDragEnter}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
@@ -418,23 +366,26 @@ export default function ProjectImageUploader({
           hidden
         />
 
-        <button
-          type="button"
-          className="project-uploader__drop-button"
-          onClick={openFilePicker}
-          disabled={!canAdd}
-        >
-          <UploadCloud size={28} />
-          <span>
-            <strong>ลากรูปมาวางในกล่องนี้</strong>
-            <small>หรือคลิกเพื่อเลือกหลายไฟล์พร้อมกัน</small>
-          </span>
-          {items.length > 0 ? (
-            <span className="project-uploader__add-label">
-              <ImagePlus size={15} /> เพิ่มรูป
-            </span>
-          ) : null}
-        </button>
+        {items.length < maxFiles ? (
+          <button
+            type="button"
+            className="project-uploader__drop-button"
+            onClick={openFilePicker}
+            disabled={!canAdd}
+          >
+            <UploadCloud size={28} />
+            {items.length === 0 ? (
+              <span className="project-uploader__empty-copy">
+                <small>JPG, PNG, WEBP, GIF หรือ AVIF</small>
+              </span>
+            ) : null}
+            {items.length > 0 ? (
+              <span className="project-uploader__add-label">
+                <ImagePlus size={15} /> เพิ่มรูป
+              </span>
+            ) : null}
+          </button>
+        ) : null}
 
         {items.length > 0 ? (
           <div className="project-uploader__list">
@@ -484,23 +435,27 @@ export default function ProjectImageUploader({
                       </span>
                     ) : null}
 
-                    {itemStatus === "uploading" ? (
-                      <div
-                        className="project-uploader__status-ring"
-                        aria-hidden="true"
-                        style={
-                          {
-                            "--progress": `${progressById[item.id] ?? 12}%`,
-                          } as React.CSSProperties
-                        }
-                      />
-                    ) : itemStatus === "error" ? (
+                    {itemStatus === "error" ? (
                       <div
                         className="project-uploader__status-ring project-uploader__status-ring--error"
                         aria-hidden="true"
                       >
                         <AlertCircle size={18} />
                       </div>
+                    ) : null}
+
+                    {itemStatus === "uploading" ? (
+                      <span
+                        className="project-uploader-status"
+                        role="status"
+                        aria-label="กำลังอัปโหลด"
+                      >
+                        <Loader2
+                          className="project-uploader-status__spinner"
+                          size={14}
+                          aria-hidden="true"
+                        />
+                      </span>
                     ) : null}
                   </div>
 
@@ -566,20 +521,6 @@ export default function ProjectImageUploader({
                 </article>
               );
             })}
-          </div>
-        ) : (
-          <div className="project-uploader__empty-note">
-            JPG, PNG, WEBP, GIF หรือ AVIF
-          </div>
-        )}
-
-        {newItems.length > 0 && pendingUploadCount > 0 ? (
-          <div className="project-uploader__upload-status" role="status">
-            <Loader2 className="project-uploader__spinner" size={16} />
-            <span>
-              กำลังอัปโหลดรูป {pendingUploadCount} รูปอยู่เบื้องหลัง
-              <small>รอให้สถานะเป็น “เสร็จแล้ว” แล้วค่อยบันทึก</small>
-            </span>
           </div>
         ) : null}
 
@@ -679,6 +620,7 @@ export default function ProjectImageUploader({
 
         .project-uploader {
           width: 100%;
+          height: 100%;
           display: flex;
           flex-direction: column;
           gap: 8px;
@@ -719,6 +661,7 @@ export default function ProjectImageUploader({
 
         .project-uploader__panel {
           position: relative;
+          flex: 1;
           min-height: 220px;
           display: flex;
           flex-direction: column;
@@ -736,12 +679,12 @@ export default function ProjectImageUploader({
         .project-uploader__drop-button {
           order: 2;
           flex: 0 0 auto;
-          width: 100%;
           min-height: 58px;
           display: flex;
           align-items: center;
           justify-content: flex-start;
           gap: 12px;
+          width: calc(100% - 20px);
           margin: 0 10px 10px;
           padding: 10px 12px;
           border: 1px dashed #cfd6e0;
@@ -755,6 +698,32 @@ export default function ProjectImageUploader({
         .project-uploader__drop-button:not(:disabled):hover {
           background: #f0f7fa;
           color: #087ea4;
+        }
+
+        .project-uploader__panel--empty .project-uploader__drop-button {
+          flex: 1;
+          width: 100%;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+          min-height: 180px;
+          margin: 0;
+          text-align: center;
+        }
+
+        .project-uploader__panel--empty {
+          border: 0;
+          background: transparent;
+        }
+
+        .project-uploader__panel--empty
+          .project-uploader__drop-button
+          > .project-uploader__empty-copy {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 3px;
         }
 
         .project-uploader__drop-button:disabled {
@@ -791,7 +760,6 @@ export default function ProjectImageUploader({
 
         .project-uploader__list {
           order: 1;
-          flex: 1;
           min-height: 0;
           overflow: visible;
           display: grid;
@@ -838,8 +806,8 @@ export default function ProjectImageUploader({
 
         .project-uploader__actions .project-uploader__delete {
           display: grid;
-          width: 24px;
-          height: 24px;
+          width: 40px;
+          height: 40px;
           padding: 0;
           place-items: center;
           border: 1px solid rgba(255,255,255,0.45);
@@ -970,6 +938,7 @@ export default function ProjectImageUploader({
             conic-gradient(#c4324f 100%, rgba(196, 50, 79, 0.16) 0);
           color: #ffffff;
           box-shadow: 0 2px 10px rgba(196, 50, 79, 0.25);
+          animation: none;
         }
 
         .project-uploader__item-info {
@@ -1002,8 +971,8 @@ export default function ProjectImageUploader({
         }
 
         .project-uploader__actions button {
-          width: 29px;
-          height: 29px;
+          width: 40px;
+          height: 40px;
           display: grid;
           place-items: center;
           padding: 0;
@@ -1027,14 +996,6 @@ export default function ProjectImageUploader({
         .project-uploader__actions button:disabled {
           cursor: not-allowed;
           opacity: 0.35;
-        }
-
-        .project-uploader__empty-note {
-          flex: 1;
-          display: grid;
-          place-items: center;
-          color: #667085;
-          font-size: 12px;
         }
 
         .project-uploader__drag-overlay,
@@ -1107,6 +1068,8 @@ export default function ProjectImageUploader({
         }
 
         .project-uploader__message button {
+          width: 40px;
+          height: 40px;
           display: grid;
           place-items: center;
           padding: 0;
@@ -1120,37 +1083,14 @@ export default function ProjectImageUploader({
           position: absolute;
           right: 7px;
           bottom: 7px;
-          display: inline-flex;
-          align-items: center;
-          gap: 4px;
-          padding: 4px 7px;
-          border-radius: 999px;
+          width: 28px;
+          height: 28px;
+          display: grid;
+          place-items: center;
+          padding: 0;
+          border-radius: 50%;
           background: rgba(0, 0, 0, 0.76);
           color: #ffffff;
-          font-size: 10px;
-          font-weight: 700;
-          letter-spacing: 0.02em;
-        }
-
-        .project-uploader__upload-status {
-          display: flex;
-          align-items: flex-start;
-          gap: 8px;
-          margin: 8px 10px 10px;
-          padding: 9px 10px;
-          border: 1px solid #b8dbe7;
-          border-radius: 8px;
-          background: #eef9fc;
-          color: #087ea4;
-          font-size: 12px;
-          line-height: 1.45;
-        }
-
-        .project-uploader__upload-status small {
-          display: block;
-          margin-top: 2px;
-          color: #667085;
-          font-size: 11px;
         }
 
         .project-uploader-status--done {
@@ -1197,8 +1137,8 @@ export default function ProjectImageUploader({
           top: 10px;
           right: 10px;
           z-index: 2;
-          width: 38px;
-          height: 38px;
+          width: 44px;
+          height: 44px;
           display: grid;
           place-items: center;
           border: 1px solid rgba(255, 255, 255, 0.25);
@@ -1215,10 +1155,6 @@ export default function ProjectImageUploader({
         }
 
         @media (max-width: 620px) {
-          .project-uploader__panel {
-            height: 460px;
-          }
-
           .project-uploader__drop-button {
             align-items: flex-start;
             flex-wrap: wrap;
@@ -1227,6 +1163,7 @@ export default function ProjectImageUploader({
           .project-uploader__list {
             grid-template-columns: 1fr;
           }
+
         }
 
         @media (prefers-reduced-motion: reduce) {

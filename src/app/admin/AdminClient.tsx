@@ -743,7 +743,7 @@ export default function AdminClient({
                       />
                     </Field>
 
-                    <Field label="รายละเอียด" required>
+                    <Field label="รายละเอียด (รองรับ Markdown)" required>
                       <textarea
                         value={form.description}
                         onChange={(event) =>
@@ -756,7 +756,7 @@ export default function AdminClient({
                         rows={7}
                         required
                         disabled={saving}
-                        placeholder="อธิบายโปรเจกต์ เทคโนโลยี และผลงานที่ทำ"
+                        placeholder={"## รายละเอียด\n\n1. ขั้นตอนแรก\n2. ขั้นตอนถัดไป\n\n- **จุดเด่น** — คำอธิบาย"}
                       />
                     </Field>
 
@@ -1140,7 +1140,7 @@ export default function AdminClient({
 
         .admin-page {
           min-height: 100svh;
-          padding: 40px 20px 64px;
+          padding: 32px 20px 56px;
           background: var(--admin-bg);
         }
 
@@ -1153,8 +1153,8 @@ export default function AdminClient({
           display: flex;
           align-items: flex-start;
           justify-content: space-between;
-          gap: 24px;
-          margin-bottom: 24px;
+          gap: 20px;
+          margin-bottom: 20px;
         }
 
         .admin-page__eyebrow {
@@ -1169,7 +1169,7 @@ export default function AdminClient({
         .admin-page__header h1 {
           margin: 0;
           color: var(--admin-text);
-          font-size: clamp(28px, 4vw, 42px);
+          font-size: clamp(28px, 3vw, 36px);
           line-height: 1.15;
         }
 
@@ -1187,7 +1187,7 @@ export default function AdminClient({
         }
 
         .admin-button {
-          min-height: 42px;
+          min-height: 44px;
           display: inline-flex;
           align-items: center;
           justify-content: center;
@@ -1255,7 +1255,7 @@ export default function AdminClient({
           display: grid;
           grid-template-columns: repeat(3, minmax(0, 1fr));
           gap: 14px;
-          margin-bottom: 24px;
+          margin-bottom: 20px;
         }
 
         .admin-stats article {
@@ -1263,8 +1263,8 @@ export default function AdminClient({
           align-items: center;
           justify-content: space-between;
           gap: 16px;
-          min-height: 84px;
-          padding: 18px 20px;
+          min-height: 80px;
+          padding: 16px 18px;
           border: 1px solid var(--admin-border);
           border-radius: 10px;
           background: var(--admin-surface);
@@ -1277,7 +1277,7 @@ export default function AdminClient({
 
         .admin-stats strong {
           color: var(--admin-text);
-          font-size: 28px;
+          font-size: 24px;
         }
 
         .admin-project-grid {
@@ -1357,8 +1357,8 @@ export default function AdminClient({
         }
 
         .admin-project-card__title-row a {
-          width: 32px;
-          height: 32px;
+          width: 40px;
+          height: 40px;
           display: grid;
           place-items: center;
           border: 1px solid var(--admin-border);
@@ -1402,7 +1402,7 @@ export default function AdminClient({
         }
 
         .admin-project-card__actions button {
-          min-height: 38px;
+          min-height: 44px;
           display: inline-flex;
           align-items: center;
           justify-content: center;
@@ -1552,7 +1552,7 @@ export default function AdminClient({
           align-items: center;
           justify-content: space-between;
           gap: 16px;
-          padding: 16px 18px;
+          padding: 14px 18px;
           border-bottom: 1px solid var(--admin-border);
           background: var(--admin-surface);
         }
@@ -1569,8 +1569,8 @@ export default function AdminClient({
         }
 
         .admin-icon-button {
-          width: 38px;
-          height: 38px;
+          width: 44px;
+          height: 44px;
           display: grid;
           place-items: center;
           border: 1px solid var(--admin-border);
@@ -1590,9 +1590,10 @@ export default function AdminClient({
         .admin-modal__body {
           min-height: 0;
           display: grid;
-          grid-template-columns: minmax(0, 1.15fr) minmax(320px, 0.85fr);
-          gap: 20px;
-          padding: 18px;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          align-items: stretch;
+          gap: 16px;
+          padding: 16px;
           overflow-y: auto;
           background: var(--admin-surface-alt);
         }
@@ -1602,11 +1603,17 @@ export default function AdminClient({
           min-width: 0;
         }
 
+        .admin-modal__upload {
+          min-height: 0;
+          align-self: stretch;
+        }
+
         .admin-modal__fields {
+          height: 100%;
           display: flex;
           flex-direction: column;
-          gap: 14px;
-          padding: 16px;
+          gap: 12px;
+          padding: 14px;
           border: 1px solid var(--admin-border);
           border-radius: 10px;
           background: var(--admin-surface);
@@ -1663,7 +1670,7 @@ export default function AdminClient({
           align-items: center;
           justify-content: space-between;
           gap: 16px;
-          padding: 14px 18px;
+          padding: 12px 16px;
           border-top: 1px solid var(--admin-border);
           background: var(--admin-surface);
         }

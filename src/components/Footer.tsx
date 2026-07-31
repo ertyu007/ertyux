@@ -168,8 +168,8 @@ export default function Footer() {
                   whileHover={{ y: -4, color: "var(--cyan)", borderColor: "var(--cyan)", scale: 1.04 }}
                   whileTap={{ scale: 0.95 }}
                   style={{
-                    width: 42,
-                    height: 42,
+                    width: 44,
+                    height: 44,
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
@@ -195,7 +195,7 @@ export default function Footer() {
                 alignItems: "center",
                 justifyContent: "center",
                 gap: "0.45rem",
-                minHeight: 42,
+                minHeight: 44,
                 background: "linear-gradient(135deg, rgba(10,132,255,0.12), rgba(94,92,230,0.08))",
                 border: "1px solid rgba(10, 132, 255, 0.18)",
                 borderRadius: "var(--radius-full)",

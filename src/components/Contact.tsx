@@ -198,6 +198,7 @@ export default function Contact() {
       <div className="container" style={{ maxWidth: 760 }}>
         {/* Header */}
         <motion.div
+          className="section-heading"
           initial={{ opacity: 0, y: 30 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
@@ -256,7 +257,7 @@ export default function Contact() {
             onSubmit={sendEmail}
             autoComplete="on"
             style={{
-              display: "flex", flexDirection: "column", gap: "1.5rem", position: "relative",
+              display: "flex", flexDirection: "column", gap: "1.25rem", position: "relative",
             }}
           >
             <div
@@ -284,7 +285,7 @@ export default function Contact() {
               style={{
                 display: "grid",
                 gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-                gap: "1.5rem",
+                gap: "1.25rem",
               }}
             >
               <FloatingField icon={User} label="Your Name" name="user_name" />
@@ -381,7 +382,7 @@ export default function Contact() {
                     alignItems: "center",
                     justifyContent: "center",
                     gap: "0.35rem",
-                    minHeight: 34,
+                    minHeight: 44,
                     padding: "0 0.8rem",
                     border: "1px solid rgba(10, 132, 255, 0.18)",
                     borderRadius: "999px",

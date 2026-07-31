@@ -133,11 +133,12 @@ export default function Services() {
   return (
     <section id="services" className="section container">
         <motion.div
+          className="section-heading"
           initial={{ opacity: 0, y: 30 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: "-100px" }}
           transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
-          style={{ textAlign: "center", marginBottom: "4rem" }}
+          style={{ textAlign: "center", marginBottom: "3rem" }}
         >
         <div className="section-tag" style={{ justifyContent: "center" }}>What I Do</div>
         <h2>
@@ -152,7 +153,7 @@ export default function Services() {
         style={{
           display: "grid",
           gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))",
-          gap: "2rem",
+          gap: "1.5rem",
         }}
       >
         {services.map((service, i) => (
